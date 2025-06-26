@@ -236,20 +236,20 @@ export default function useFind<Content extends {}>(
 
   // PERFORMANCE FIX: Memoize the result to prevent unnecessary re-renders
   // when the state object changes but values are identical
+  const docsFingerprint = useMemo(() => {
+    return state.docs?.map(doc => ({ _id: doc._id, _rev: doc._rev }))
+  }, [state.docs])
+
+  const docsFingerprintStr = useMemo(() => {
+    return JSON.stringify(docsFingerprint)
+  }, [docsFingerprint])
+
   const memoizedResult = useMemo(
     () => ({
       ...state,
     }),
-    [
-      // Use document fingerprints for efficient change detection
-      JSON.stringify(
-        state.docs?.map(doc => ({ _id: doc._id, _rev: doc._rev }))
-      ),
-      state.loading,
-      state.error?.message,
-      state.state,
-      state.warning,
-    ]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state, docsFingerprintStr] // docsFingerprintStr provides more efficient change detection than state.docs
   )
 
   return memoizedResult

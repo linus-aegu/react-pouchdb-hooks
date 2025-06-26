@@ -5,6 +5,7 @@ import React, {
   useState,
   ReactNode,
 } from 'react'
+import isEqual from 'fast-deep-equal'
 
 import SubscriptionManager from './subscription'
 
@@ -14,6 +15,12 @@ export interface PouchContextObject {
 }
 
 type ContextObject = { [key: string]: PouchContextObject }
+
+// Subscription manager options
+export interface SubscriptionOptions {
+  enableBatching?: boolean
+  batchDelay?: number
+}
 
 const PouchContext = /*#__PURE__*/ createContext<{
   defaultKey: string
@@ -34,6 +41,7 @@ export interface SingleDbProviderArguments {
   children: JSX.Element | ReactNode
   pouchdb: PouchDB.Database
   name?: string
+  subscriptionOptions?: SubscriptionOptions
 }
 
 /**
@@ -43,6 +51,7 @@ export interface MultiDbProviderArguments {
   children: JSX.Element | ReactNode
   databases: { [key: string]: PouchDB.Database }
   default: string
+  subscriptionOptions?: SubscriptionOptions
 }
 
 export type ProviderArguments =
@@ -55,14 +64,21 @@ export type ProviderArguments =
  * @param args React arguments.
  */
 export function Provider(args: ProviderArguments): React.ReactElement {
-  const { pouchdb, name } = args as SingleDbProviderArguments
-  const { databases: dbsArg, default: defaultArg } =
-    args as MultiDbProviderArguments
+  const { pouchdb, name, subscriptionOptions } =
+    args as SingleDbProviderArguments
+  const {
+    databases: dbsArg,
+    default: defaultArg,
+    subscriptionOptions: subscriptionOptionsMulti,
+  } = args as MultiDbProviderArguments
 
   // collection of databases added in this Provider
   let databases: { [key: string]: PouchDB.Database }
   // key of the default database
   let defaultKey: string
+  // subscription options
+  const finalSubscriptionOptions =
+    subscriptionOptions || subscriptionOptionsMulti
 
   // normalize the two argument types into one
   if (dbsArg != null && defaultArg != null) {
@@ -77,7 +93,10 @@ export function Provider(args: ProviderArguments): React.ReactElement {
     )
   }
 
-  const contextObjects = useAddSubscriptionManager(databases)
+  const contextObjects = useAddSubscriptionManager(
+    databases,
+    finalSubscriptionOptions
+  )
 
   const parentDatabases = useReactContext(PouchContext).databases
 
@@ -104,41 +123,55 @@ export function Provider(args: ProviderArguments): React.ReactElement {
  * Memorizes all databases and reuses the SubscriptionManagers of them.
  * Also unsubscribes SubscriptionManager.
  * @param databases HashMap containing PouchDB databases.
+ * @param subscriptionOptions Options for subscription manager configuration.
  */
-function useAddSubscriptionManager(databases: {
-  [key: string]: PouchDB.Database
-}): ContextObject {
+function useAddSubscriptionManager(
+  databases: { [key: string]: PouchDB.Database },
+  subscriptionOptions?: SubscriptionOptions
+): ContextObject {
   // memory for last DB and SubscriptionManager pairs
   const [lastDatabases, setLastDatabases] = useState(databases)
   const [lastContextObject, setLastContextObject] =
     useState<ContextObject | null>(null)
+  const [lastSubscriptionOptions, setLastSubscriptionOptions] = useState<
+    SubscriptionOptions | undefined
+  >(subscriptionOptions)
+
+  // Check if options changed using deep equality
+  const didChangeOptions = !isEqual(
+    subscriptionOptions,
+    lastSubscriptionOptions
+  )
 
   // This is for re-renders, which happens when setState is called while rendering.
   // https://beta.reactjs.org/apis/usestate#storing-information-from-previous-renders
-  if (lastContextObject && databases === lastDatabases) return lastContextObject
+  if (lastContextObject && databases === lastDatabases && !didChangeOptions) {
+    return lastContextObject
+  }
 
   const contextObjects: ContextObject = {}
   const dbToUnsubscribe = new Set(Object.keys(lastContextObject ?? {}))
   let didAddNewDatabase = false
 
   for (const [key, db] of Object.entries(databases)) {
-    if (lastContextObject && lastDatabases[key] === db) {
-      // DB didn't change
+    if (lastContextObject && lastDatabases[key] === db && !didChangeOptions) {
+      // DB didn't change and options didn't change
       contextObjects[key] = lastContextObject[key]
       dbToUnsubscribe.delete(key)
     } else {
-      // It is a new or changed DB
+      // It is a new or changed DB, or options changed
       didAddNewDatabase = true
       contextObjects[key] = {
         pouchdb: db,
-        subscriptionManager: new SubscriptionManager(db),
+        subscriptionManager: new SubscriptionManager(db, subscriptionOptions),
       }
     }
   }
 
-  if (didAddNewDatabase || dbToUnsubscribe.size > 0) {
+  if (didAddNewDatabase || dbToUnsubscribe.size > 0 || didChangeOptions) {
     setLastDatabases(databases)
     setLastContextObject(contextObjects)
+    setLastSubscriptionOptions(subscriptionOptions)
   } else if (lastContextObject) {
     return lastContextObject // nothing did change and not first render: use last
   }

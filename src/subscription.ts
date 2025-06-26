@@ -10,6 +10,15 @@ interface DocsSubscription {
   changesFeed: PouchDB.Core.Changes<{}>
   all: Set<DocsCallback<{}>>
   ids: Map<PouchDB.Core.DocumentId, Set<DocsCallback<{}>>>
+  batchTimeout: number | null
+  pendingChanges: Map<PouchDB.Core.DocumentId, PendingChange>
+}
+
+interface PendingChange {
+  deleted: boolean
+  id: PouchDB.Core.DocumentId
+  doc?: PouchDB.Core.Document<{}>
+  timestamp: number
 }
 
 export type ViewCallback = (id: PouchDB.Core.DocumentId) => void
@@ -35,9 +44,16 @@ export default class SubscriptionManager {
   #viewsSubscription = new Map<string, SubscriptionToAView>()
 
   #didUnsubscribeAll = false
+  #batchingEnabled = true
+  #batchDelay = 16
 
-  constructor(pouch: PouchDB.Database) {
+  constructor(
+    pouch: PouchDB.Database,
+    options?: { enableBatching?: boolean; batchDelay?: number }
+  ) {
     this.#pouch = pouch
+    this.#batchingEnabled = options?.enableBatching ?? true
+    this.#batchDelay = options?.batchDelay ?? 16
     this.#destroyListener = () => {
       this.unsubscribeAll()
     }
@@ -55,7 +71,11 @@ export default class SubscriptionManager {
     }
 
     if (this.#docsSubscription == null) {
-      this.#docsSubscription = createDocSubscription(this.#pouch)
+      this.#docsSubscription = createDocSubscription(
+        this.#pouch,
+        this.#batchingEnabled,
+        this.#batchDelay
+      )
     }
 
     const isIds = Array.isArray(ids) && ids.length > 0
@@ -141,12 +161,18 @@ export default class SubscriptionManager {
     this.#pouch.removeListener('destroyed', this.#destroyListener)
 
     if (this.#docsSubscription) {
+      if (this.#docsSubscription.batchTimeout) {
+        clearTimeout(this.#docsSubscription.batchTimeout)
+        this.#docsSubscription.batchTimeout = null
+      }
+
       this.#docsSubscription.changesFeed.cancel()
       this.#docsSubscription.all.clear()
       this.#docsSubscription.ids.forEach(set => {
         set.clear()
       })
       this.#docsSubscription.ids.clear()
+      this.#docsSubscription.pendingChanges.clear()
     }
 
     for (const viewInfo of this.#viewsSubscription.values()) {
@@ -155,49 +181,118 @@ export default class SubscriptionManager {
     }
     this.#viewsSubscription.clear()
   }
+
+  private flushPendingChanges(subscription: DocsSubscription): void {
+    if (subscription.pendingChanges.size === 0) return
+
+    const changesToProcess = Array.from(subscription.pendingChanges.values())
+    subscription.pendingChanges.clear()
+    subscription.batchTimeout = null
+
+    for (const change of changesToProcess) {
+      this.processChange(subscription, change.deleted, change.id, change.doc)
+    }
+  }
+
+  private scheduleBatch(subscription: DocsSubscription): void {
+    if (subscription.batchTimeout) return
+
+    subscription.batchTimeout = setTimeout(() => {
+      this.flushPendingChanges(subscription)
+    }, this.#batchDelay)
+  }
+
+  private processChange(
+    subscription: DocsSubscription,
+    deleted: boolean,
+    id: PouchDB.Core.DocumentId,
+    doc?: PouchDB.Core.Document<{}>
+  ): void {
+    const hasAll = subscription.all.size > 0
+    const idSubscriptions = subscription.ids.get(id)
+
+    if (hasAll) {
+      notify(subscription.all, deleted, id, doc)
+    }
+    if (idSubscriptions) {
+      notify(idSubscriptions, deleted, id, doc)
+    }
+  }
 }
 
-function createDocSubscription(pouch: PouchDB.Database): DocsSubscription {
+function createDocSubscription(
+  pouch: PouchDB.Database,
+  batchingEnabled: boolean,
+  batchDelay: number
+): DocsSubscription {
   let docsSubscription: DocsSubscription | null = null
 
   const changesFeed = pouch
     .changes({
       since: 'now',
       live: true,
+      include_docs: true,
     })
     .on('change', change => {
-      const hasAll = (docsSubscription?.all.size ?? 0) > 0
-      const idSubscriptions = docsSubscription?.ids.get(change.id)
+      if (!docsSubscription) return
 
-      if (change.deleted) {
-        if (hasAll && docsSubscription) {
-          notify(docsSubscription.all, true, change.id)
+      const doc = change.deleted
+        ? undefined
+        : (change.doc as PouchDB.Core.Document<{}>)
+
+      if (batchingEnabled) {
+        const pendingChange: PendingChange = {
+          deleted: change.deleted || false,
+          id: change.id,
+          doc,
+          timestamp: Date.now(),
+        }
+
+        docsSubscription.pendingChanges.set(change.id, pendingChange)
+
+        if (docsSubscription.batchTimeout) return
+
+        docsSubscription.batchTimeout = setTimeout(() => {
+          if (docsSubscription) {
+            const changesToProcess = Array.from(
+              docsSubscription.pendingChanges.values()
+            )
+            docsSubscription.pendingChanges.clear()
+            docsSubscription.batchTimeout = null
+
+            for (const pendingChange of changesToProcess) {
+              const hasAll = docsSubscription.all.size > 0
+              const idSubscriptions = docsSubscription.ids.get(pendingChange.id)
+
+              if (hasAll) {
+                notify(
+                  docsSubscription.all,
+                  pendingChange.deleted,
+                  pendingChange.id,
+                  pendingChange.doc
+                )
+              }
+              if (idSubscriptions) {
+                notify(
+                  idSubscriptions,
+                  pendingChange.deleted,
+                  pendingChange.id,
+                  pendingChange.doc
+                )
+              }
+            }
+          }
+        }, batchDelay)
+      } else {
+        const hasAll = docsSubscription.all.size > 0
+        const idSubscriptions = docsSubscription.ids.get(change.id)
+
+        if (hasAll) {
+          notify(docsSubscription.all, change.deleted || false, change.id, doc)
         }
         if (idSubscriptions) {
-          notify(idSubscriptions, true, change.id)
+          notify(idSubscriptions, change.deleted || false, change.id, doc)
         }
-      } else {
-        pouch
-          .get(change.id)
-          .then(doc => {
-            if (hasAll && docsSubscription) {
-              notify(
-                docsSubscription.all,
-                false,
-                change.id,
-                doc as unknown as PouchDB.Core.Document<{}>
-              )
-            }
-            if (idSubscriptions) {
-              notify(
-                idSubscriptions,
-                false,
-                change.id,
-                doc as unknown as PouchDB.Core.Document<{}>
-              )
-            }
-          })
-          .catch(console.error)
       }
     })
 
@@ -205,6 +300,8 @@ function createDocSubscription(pouch: PouchDB.Database): DocsSubscription {
     changesFeed,
     all: new Set(),
     ids: new Map(),
+    batchTimeout: null,
+    pendingChanges: new Map(),
   }
 
   return docsSubscription

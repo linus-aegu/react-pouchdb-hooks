@@ -51,6 +51,7 @@ test('should subscribe to document updates', () => {
   expect(changes).toHaveBeenCalledWith({
     since: 'now',
     live: true,
+    include_docs: true,
   })
   expect(changesObject.on).toHaveBeenCalled()
   expect(changesObject.cancel).not.toHaveBeenCalled()
@@ -371,7 +372,10 @@ test('should subscribe to destroy events', async () => {
 test('should clone the documents that are passed to document callbacks', async () => {
   const docs: (PouchDB.Core.IdMeta | undefined)[] = []
 
-  const subscriptionManager = new SubscriptionManager(myPouch)
+  // Disable batching for immediate callback execution
+  const subscriptionManager = new SubscriptionManager(myPouch, {
+    enableBatching: false,
+  })
 
   const unsubscribe1 = subscriptionManager.subscribeToDocs(
     ['a_document'],
@@ -392,9 +396,13 @@ test('should clone the documents that are passed to document callbacks', async (
   })
 
   await sleep(10)
+
+  // Ensure we have documents before trying to modify them
+  expect(docs).toHaveLength(2)
+  expect(docs[0]).toBeDefined()
+  expect(docs[1]).toBeDefined()
   ;(docs[0] as PouchDB.Core.IdMeta & { value: number }).value = 43
 
-  expect(docs).toHaveLength(2)
   expect((docs[0] as PouchDB.Core.IdMeta & { value: number }).value).toBe(43)
   expect((docs[1] as PouchDB.Core.IdMeta & { value: number }).value).toBe(42)
 
@@ -403,7 +411,10 @@ test('should clone the documents that are passed to document callbacks', async (
 })
 
 test('should subscribe to all docs if null is passed to doc subscription', async () => {
-  const subscriptionManager = new SubscriptionManager(myPouch)
+  // Disable batching for immediate callback execution
+  const subscriptionManager = new SubscriptionManager(myPouch, {
+    enableBatching: false,
+  })
 
   const callback = jest.fn()
 
@@ -423,4 +434,196 @@ test('should subscribe to all docs if null is passed to doc subscription', async
   expect(callback).toHaveBeenCalledTimes(15)
 
   unsubscribe()
+})
+
+test('should use include_docs to avoid separate get calls', () => {
+  const changesObject = {
+    on: jest.fn(() => changesObject),
+    cancel: jest.fn(),
+  }
+  const changes = jest.fn(() => changesObject)
+  const callback = jest.fn()
+
+  myPouch.changes = changes
+
+  const subscriptionManager = new SubscriptionManager(myPouch)
+
+  subscriptionManager.subscribeToDocs(['test'], callback)
+
+  // Should call changes with include_docs: true
+  expect(changes).toHaveBeenCalledWith({
+    since: 'now',
+    live: true,
+    include_docs: true,
+  })
+})
+
+test('should batch rapid changes when batching is enabled', async () => {
+  const changesObject = {
+    on: jest.fn(() => changesObject),
+    cancel: jest.fn(),
+  }
+  const changes = jest.fn(() => changesObject)
+  const callback = jest.fn()
+
+  myPouch.changes = changes
+
+  // Enable batching with short delay for testing
+  const subscriptionManager = new SubscriptionManager(myPouch, {
+    enableBatching: true,
+    batchDelay: 10,
+  })
+
+  subscriptionManager.subscribeToDocs(['test1', 'test2'], callback)
+
+  // Get the change handler
+  const changeHandler = changesObject.on.mock.calls.find(
+    call => call[0] === 'change'
+  )[1]
+
+  // Simulate rapid changes
+  changeHandler({
+    id: 'test1',
+    seq: 1,
+    changes: [{ rev: '1-abc' }],
+    doc: { _id: 'test1', _rev: '1-abc', value: 1 },
+  })
+
+  changeHandler({
+    id: 'test2',
+    seq: 2,
+    changes: [{ rev: '1-def' }],
+    doc: { _id: 'test2', _rev: '1-def', value: 2 },
+  })
+
+  // Callback should not be called immediately
+  expect(callback).not.toHaveBeenCalled()
+
+  // Wait for batch to process
+  await new Promise(resolve => setTimeout(resolve, 15))
+
+  // Callback should be called for both changes
+  expect(callback).toHaveBeenCalledTimes(2)
+  expect(callback).toHaveBeenCalledWith(
+    false,
+    'test1',
+    expect.objectContaining({ _id: 'test1', value: 1 })
+  )
+  expect(callback).toHaveBeenCalledWith(
+    false,
+    'test2',
+    expect.objectContaining({ _id: 'test2', value: 2 })
+  )
+})
+
+test('should process changes immediately when batching is disabled', () => {
+  const changesObject = {
+    on: jest.fn(() => changesObject),
+    cancel: jest.fn(),
+  }
+  const changes = jest.fn(() => changesObject)
+  const callback = jest.fn()
+
+  myPouch.changes = changes
+
+  // Disable batching
+  const subscriptionManager = new SubscriptionManager(myPouch, {
+    enableBatching: false,
+  })
+
+  subscriptionManager.subscribeToDocs(['test'], callback)
+
+  // Get the change handler
+  const changeHandler = changesObject.on.mock.calls.find(
+    call => call[0] === 'change'
+  )[1]
+
+  // Simulate change
+  changeHandler({
+    id: 'test',
+    seq: 1,
+    changes: [{ rev: '1-abc' }],
+    doc: { _id: 'test', _rev: '1-abc', value: 1 },
+  })
+
+  // Callback should be called immediately
+  expect(callback).toHaveBeenCalledTimes(1)
+  expect(callback).toHaveBeenCalledWith(
+    false,
+    'test',
+    expect.objectContaining({ _id: 'test', value: 1 })
+  )
+})
+
+test('should handle deleted documents with include_docs', () => {
+  const changesObject = {
+    on: jest.fn(() => changesObject),
+    cancel: jest.fn(),
+  }
+  const changes = jest.fn(() => changesObject)
+  const callback = jest.fn()
+
+  myPouch.changes = changes
+
+  // Disable batching for immediate callback execution
+  const subscriptionManager = new SubscriptionManager(myPouch, {
+    enableBatching: false,
+  })
+  subscriptionManager.subscribeToDocs(['test'], callback)
+
+  // Get the change handler
+  const changeHandler = changesObject.on.mock.calls.find(
+    call => call[0] === 'change'
+  )[1]
+
+  // Simulate deleted document
+  changeHandler({
+    id: 'test',
+    seq: 2,
+    changes: [{ rev: '2-deleted' }],
+    deleted: true,
+    doc: null,
+  })
+
+  expect(callback).toHaveBeenCalledWith(true, 'test', undefined)
+})
+
+test('should clear pending changes on unsubscribe', async () => {
+  const changesObject = {
+    on: jest.fn(() => changesObject),
+    cancel: jest.fn(),
+  }
+  const changes = jest.fn(() => changesObject)
+  const callback = jest.fn()
+
+  myPouch.changes = changes
+
+  const subscriptionManager = new SubscriptionManager(myPouch, {
+    enableBatching: true,
+    batchDelay: 50, // Longer delay
+  })
+
+  const unsubscribe = subscriptionManager.subscribeToDocs(['test'], callback)
+
+  // Get the change handler
+  const changeHandler = changesObject.on.mock.calls.find(
+    call => call[0] === 'change'
+  )[1]
+
+  // Simulate change
+  changeHandler({
+    id: 'test',
+    seq: 1,
+    changes: [{ rev: '1-abc' }],
+    doc: { _id: 'test', _rev: '1-abc', value: 1 },
+  })
+
+  // Unsubscribe before batch processes
+  unsubscribe()
+
+  // Wait longer than batch delay
+  await new Promise(resolve => setTimeout(resolve, 60))
+
+  // Callback should not be called since we unsubscribed
+  expect(callback).not.toHaveBeenCalled()
 })

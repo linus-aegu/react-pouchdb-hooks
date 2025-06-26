@@ -96,9 +96,16 @@ describe('useFind Performance', () => {
     const secondResult = result.current
 
     // If data hasn't changed, should return same object reference
-    if (JSON.stringify(firstResult) === JSON.stringify(secondResult)) {
-      expect(firstResult).toBe(secondResult)
-    }
+    const firstResultStr = JSON.stringify(firstResult)
+    const secondResultStr = JSON.stringify(secondResult)
+    const dataIsIdentical = firstResultStr === secondResultStr
+
+    // Always make an assertion - either data is identical (stable reference) or different (new reference)
+    expect(
+      dataIsIdentical
+        ? firstResult === secondResult
+        : firstResult !== secondResult
+    ).toBe(true)
   })
 
   it('should minimize re-renders when selector object is recreated', async () => {
