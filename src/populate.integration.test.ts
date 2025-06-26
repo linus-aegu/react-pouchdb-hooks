@@ -1,369 +1,537 @@
 import PouchDB from 'pouchdb-core'
 import memory from 'pouchdb-adapter-memory'
+import mapReduce from 'pouchdb-mapreduce'
+import find from 'pouchdb-find'
+
+import { renderHook, waitForNextUpdate } from './test-utils'
+import useDoc from './useDoc'
+import useAllDocs from './useAllDocs'
+import useFind from './useFind'
+import useView from './useView'
 import type { PopulateConfig } from './populate-types'
 
 PouchDB.plugin(memory)
+PouchDB.plugin(mapReduce)
+PouchDB.plugin(find)
 
-// Mock the hooks since we're testing integration scenarios
-const mockUseDoc = jest.fn()
-const mockUseAllDocs = jest.fn()
-const mockUseView = jest.fn()
-const mockUseFind = jest.fn()
+interface TestPost {
+  _id: string
+  _rev?: string
+  type: 'post'
+  title: string
+  site_id: string
+  author_id: string
+  category_id?: string
+}
 
-// Mock implementations would go here
-jest.mock('./useDoc', () => ({
-  default: mockUseDoc,
-}))
+interface TestSite {
+  _id: string
+  _rev?: string
+  type: 'site'
+  name: string
+  domain: string
+}
 
-jest.mock('./useAllDocs', () => ({
-  default: mockUseAllDocs,
-}))
+interface TestUser {
+  _id: string
+  _rev?: string
+  type: 'user'
+  name: string
+  email: string
+}
 
-jest.mock('./useView', () => ({
-  default: mockUseView,
-}))
-
-jest.mock('./useFind', () => ({
-  default: mockUseFind,
-}))
+interface TestCategory {
+  _id: string
+  _rev?: string
+  type: 'category'
+  name: string
+}
 
 describe('Populate Integration Tests', () => {
   let db: PouchDB.Database
 
   beforeEach(async () => {
     db = new PouchDB('test-populate-integration', { adapter: 'memory' })
-
-    // Setup test data
     await setupTestData()
   })
 
   afterEach(async () => {
     await db.destroy()
-    jest.clearAllMocks()
   })
 
   async function setupTestData() {
     // Create reference documents
     await db.bulkDocs([
       // Sites
-      { _id: 'site_1', name: 'Tech Blog', domain: 'techblog.com' },
-      { _id: 'site_2', name: 'News Site', domain: 'news.com' },
+      {
+        _id: 'site_1',
+        type: 'site',
+        name: 'Tech Blog',
+        domain: 'techblog.com',
+      } as TestSite,
+      {
+        _id: 'site_2',
+        type: 'site',
+        name: 'News Site',
+        domain: 'news.com',
+      } as TestSite,
 
       // Users
-      { _id: 'user_1', name: 'John Doe', email: 'john@example.com' },
-      { _id: 'user_2', name: 'Jane Smith', email: 'jane@example.com' },
+      {
+        _id: 'user_1',
+        type: 'user',
+        name: 'John Doe',
+        email: 'john@example.com',
+      } as TestUser,
+      {
+        _id: 'user_2',
+        type: 'user',
+        name: 'Jane Smith',
+        email: 'jane@example.com',
+      } as TestUser,
 
       // Categories
-      { _id: 'cat_1', name: 'Technology' },
-      { _id: 'cat_2', name: 'Politics' },
+      { _id: 'cat_1', type: 'category', name: 'Technology' } as TestCategory,
+      { _id: 'cat_2', type: 'category', name: 'Politics' } as TestCategory,
 
       // Posts
       {
         _id: 'post_1',
+        type: 'post',
         title: 'First Post',
         site_id: 'site_1',
         author_id: 'user_1',
         category_id: 'cat_1',
-      },
+      } as TestPost,
       {
         _id: 'post_2',
+        type: 'post',
         title: 'Second Post',
         site_id: 'site_2',
         author_id: 'user_2',
         category_id: 'cat_2',
-      },
+      } as TestPost,
       {
         _id: 'post_3',
+        type: 'post',
         title: 'Third Post',
         site_id: 'site_1',
         author_id: 'user_1',
         category_id: 'cat_1',
-      },
+      } as TestPost,
     ])
+
+    // Create design document for view tests
+    await db.put({
+      _id: '_design/posts',
+      views: {
+        by_site: {
+          map: function (doc: TestPost) {
+            if (doc.type === 'post') {
+              emit(doc.site_id, doc)
+            }
+          }.toString(),
+        },
+        by_author: {
+          map: function (doc: TestPost) {
+            if (doc.type === 'post') {
+              emit(doc.author_id, doc)
+            }
+          }.toString(),
+        },
+      },
+    })
+
+    // Create index for find tests
+    await db.createIndex({
+      index: {
+        fields: ['type', 'site_id'],
+      },
+    })
   }
 
-  describe('Hook Integration Scenarios', () => {
-    it('should integrate with useDoc for single document population', () => {
-      // This test would verify that useDoc + populate works correctly
-      // For now, we just verify the integration point exists
-      expect(mockUseDoc).toBeDefined()
+  describe('Cross-Hook Populate Consistency', () => {
+    const populateConfig: PopulateConfig = {
+      site_id: { as: 'site' },
+      author_id: { as: 'author' },
+      category_id: { as: 'category' },
+    }
 
-      // In a real implementation, this would test:
-      // const doc = useDoc('post_1', { populate: { site_id: { as: 'site' } } })
-      // expect(doc.site).toBeDefined()
+    it('should provide consistent populate results across useDoc and useAllDocs', async () => {
+      // Test useDoc
+      const { result: docResult } = renderHook(
+        () => useDoc<TestPost>('post_1', { populate: populateConfig }),
+        { pouchdb: db }
+      )
+
+      await waitForNextUpdate(docResult)
+
+      expect(docResult.current.state).toBe('done')
+      const docPopulated = docResult.current.doc as TestPost & {
+        site: TestSite
+        author: TestUser
+        category: TestCategory
+      }
+
+      // Test useAllDocs
+      const { result: allDocsResult } = renderHook(
+        () =>
+          useAllDocs<TestPost>({
+            include_docs: true,
+            startkey: 'post_1',
+            endkey: 'post_1',
+            populate: populateConfig,
+          }),
+        { pouchdb: db }
+      )
+
+      await waitForNextUpdate(allDocsResult)
+
+      expect(allDocsResult.current.state).toBe('done')
+      const allDocsPopulated = allDocsResult.current.rows[0].doc as TestPost & {
+        site: TestSite
+        author: TestUser
+        category: TestCategory
+      }
+
+      // Both should have the same populated data
+      expect(docPopulated.site).toEqual(allDocsPopulated.site)
+      expect(docPopulated.author).toEqual(allDocsPopulated.author)
+      expect(docPopulated.category).toEqual(allDocsPopulated.category)
     })
 
-    it('should integrate with useAllDocs for multiple document population', () => {
-      // This test would verify that useAllDocs + populate works correctly
-      expect(mockUseAllDocs).toBeDefined()
+    it('should provide consistent populate results across useFind and useView', async () => {
+      // Test useFind
+      const { result: findResult } = renderHook(
+        () =>
+          useFind<TestPost>({
+            selector: { type: 'post', _id: 'post_1' },
+            populate: populateConfig,
+          }),
+        { pouchdb: db }
+      )
 
-      // In a real implementation, this would test:
-      // const docs = useAllDocs({ populate: { site_id: { as: 'site' } } })
-      // docs.forEach(doc => expect(doc.site).toBeDefined())
+      await waitForNextUpdate(findResult)
+
+      expect(findResult.current.state).toBe('done')
+      expect(findResult.current.docs).toHaveLength(1)
+      const findPopulated = findResult.current.docs[0] as TestPost & {
+        site: TestSite
+        author: TestUser
+        category: TestCategory
+      }
+
+      // Test useView with temporary view
+      const temporaryView = (doc: TestPost) => {
+        if (doc.type === 'post' && doc._id === 'post_1') {
+          emit(doc._id, doc)
+        }
+      }
+
+      const { result: viewResult } = renderHook(
+        () =>
+          useView<TestPost, TestPost>(temporaryView, {
+            include_docs: true,
+            populate: populateConfig,
+          }),
+        { pouchdb: db }
+      )
+
+      await waitForNextUpdate(viewResult)
+
+      expect(viewResult.current.state).toBe('done')
+      expect(viewResult.current.rows).toHaveLength(1)
+      const viewPopulated = viewResult.current.rows[0].doc as TestPost & {
+        site: TestSite
+        author: TestUser
+        category: TestCategory
+      }
+
+      // Both should have the same populated data
+      expect(findPopulated.site).toEqual(viewPopulated.site)
+      expect(findPopulated.author).toEqual(viewPopulated.author)
+      expect(findPopulated.category).toEqual(viewPopulated.category)
     })
 
-    it('should integrate with useFind for query-based population', () => {
-      // This test would verify that useFind + populate works correctly
-      expect(mockUseFind).toBeDefined()
+    it('should provide consistent populate results with design document views', async () => {
+      const { result: viewResult } = renderHook(
+        () =>
+          useView<TestPost, TestPost>('posts/by_site', {
+            key: 'site_1',
+            include_docs: true,
+            populate: populateConfig,
+          }),
+        { pouchdb: db }
+      )
 
-      // In a real implementation, this would test:
-      // const result = useFind({
-      //   selector: { type: 'post' },
-      //   populate: { site_id: { as: 'site' } }
-      // })
-      // result.docs.forEach(doc => expect(doc.site).toBeDefined())
-    })
+      await waitForNextUpdate(viewResult)
 
-    it('should integrate with useView for view-based population', () => {
-      // This test would verify that useView + populate works correctly
-      expect(mockUseView).toBeDefined()
+      expect(viewResult.current.state).toBe('done')
+      expect(viewResult.current.rows.length).toBeGreaterThan(0)
 
-      // In a real implementation, this would test:
-      // const result = useView('posts', 'by_site', {
-      //   populate: { site_id: { as: 'site' } }
-      // })
-      // result.rows.forEach(row => expect(row.doc.site).toBeDefined())
+      // All populated documents should have consistent structure
+      viewResult.current.rows.forEach(row => {
+        const populated = row.doc as TestPost & {
+          site: TestSite
+          author: TestUser
+          category?: TestCategory
+        }
+
+        expect(populated.site).toBeDefined()
+        expect(populated.site._id).toBe('site_1')
+        expect(populated.site.name).toBe('Tech Blog')
+
+        expect(populated.author).toBeDefined()
+        expect(populated.author.name).toBeDefined()
+
+        // All our test posts have category_id, so category should be populated
+        expect(populated.category_id).toBeDefined()
+        expect(populated.category).toBeDefined()
+        expect(populated.category?.name).toBeDefined()
+      })
     })
   })
 
-  describe('Cross-Hook Consistency', () => {
-    it('should provide consistent populate results across different hooks', async () => {
-      // Test that the same populate config produces consistent results
-      // regardless of which hook is used to fetch the data
-
+  describe('Performance and Caching Integration', () => {
+    it('should efficiently share populate cache across multiple hooks', async () => {
       const populateConfig: PopulateConfig = {
         site_id: { as: 'site' },
-        author_id: { as: 'author' },
       }
 
-      // This would test that useDoc, useAllDocs, useFind, and useView
-      // all produce the same populated structure for the same document
-      expect(populateConfig).toBeDefined()
-    })
+      // Test that multiple hooks can use populate successfully
+      const { result: docResult1 } = renderHook(
+        () => useDoc<TestPost>('post_1', { populate: populateConfig }),
+        { pouchdb: db }
+      )
 
-    it('should handle nested populate configurations consistently', async () => {
-      // Test complex populate scenarios that might involve multiple levels
-      const complexPopulateConfig: PopulateConfig = {
-        site_id: { as: 'site' },
-        author_id: { as: 'author' },
-        category_id: { as: 'category' },
-      }
+      await waitForNextUpdate(docResult1)
 
-      expect(complexPopulateConfig).toBeDefined()
+      expect(docResult1.current.state).toBe('done')
+      const doc1 = docResult1.current.doc as TestPost & { site: TestSite }
+      expect(doc1.site).toBeDefined()
+      expect(doc1.site.name).toBe('Tech Blog')
+
+      // Test that a second hook also works with populate
+      const { result: docResult2 } = renderHook(
+        () => useDoc<TestPost>('post_3', { populate: populateConfig }),
+        { pouchdb: db }
+      )
+
+      await waitForNextUpdate(docResult2)
+
+      expect(docResult2.current.state).toBe('done')
+      const doc3 = docResult2.current.doc as TestPost & { site: TestSite }
+
+      // Both docs should reference the same site (site_1) and should be populated
+      expect(doc3.site).toBeDefined()
+      expect(doc1.site).toEqual(doc3.site)
+      expect(doc3.site.name).toBe('Tech Blog')
     })
   })
 
-  describe('Performance Integration', () => {
-    it('should maintain performance across all hooks with populate', async () => {
-      // Test that populate doesn't significantly impact performance
-      // when used with different hooks
-
-      const startTime = Date.now()
-
-      // Simulate multiple hook operations with populate
-      // In real implementation, this would test actual hook performance
-
-      const endTime = Date.now()
-      const duration = endTime - startTime
-
-      expect(duration).toBeLessThan(100) // Should be fast
-    })
-
-    it('should efficiently share populate cache across hooks', async () => {
-      // Test that multiple hooks can benefit from shared populate caching
-
-      const populateConfig: PopulateConfig = {
-        site_id: { as: 'site' },
-      }
-
-      // This would test that if multiple hooks request the same references,
-      // they share the cache efficiently
-      expect(populateConfig).toBeDefined()
-    })
-  })
-
-  describe('Error Handling Integration', () => {
+  describe('Error Handling Consistency', () => {
     it('should handle populate errors gracefully across all hooks', async () => {
-      // Test that populate errors don't break the hooks
-
       const populateConfig: PopulateConfig = {
+        site_id: { as: 'site' },
         nonexistent_field: { as: 'missing' },
       }
 
-      // This would test that hooks continue to work even when populate fails
-      expect(populateConfig).toBeDefined()
-    })
+      // Test with useDoc
+      const { result: docResult } = renderHook(
+        () => useDoc<TestPost>('post_1', { populate: populateConfig }),
+        { pouchdb: db }
+      )
 
-    it('should provide consistent error handling across hooks', async () => {
-      // Test that all hooks handle populate errors in the same way
+      await waitForNextUpdate(docResult)
 
-      const populateConfig: PopulateConfig = {
-        site_id: { as: 'site' },
+      expect(docResult.current.state).toBe('done')
+      const docPopulated = docResult.current.doc as TestPost & {
+        site: TestSite
+        missing?: unknown
       }
 
-      expect(populateConfig).toBeDefined()
+      expect(docPopulated.site).toBeDefined()
+      expect(docPopulated.missing).toBeUndefined()
+
+      // Test with useFind
+      const { result: findResult } = renderHook(
+        () =>
+          useFind<TestPost>({
+            selector: { type: 'post', _id: 'post_1' },
+            populate: populateConfig,
+          }),
+        { pouchdb: db }
+      )
+
+      await waitForNextUpdate(findResult)
+
+      expect(findResult.current.state).toBe('done')
+      const findPopulated = findResult.current.docs[0] as TestPost & {
+        site: TestSite
+        missing?: unknown
+      }
+
+      expect(findPopulated.site).toBeDefined()
+      expect(findPopulated.missing).toBeUndefined()
+
+      // Both should handle errors consistently
+      expect(docPopulated.site).toEqual(findPopulated.site)
     })
   })
 
-  describe('Real-world Usage Scenarios', () => {
+  describe('Real-world Scenarios', () => {
     it('should handle blog post scenario with multiple relationships', async () => {
-      // Simulate a real blog application with posts, authors, sites, categories
-
       const blogPopulateConfig: PopulateConfig = {
         site_id: { as: 'site' },
         author_id: { as: 'author' },
         category_id: { as: 'category' },
       }
 
-      // This would test a complete blog scenario
-      expect(blogPopulateConfig).toBeDefined()
+      const { result } = renderHook(
+        () =>
+          useFind<TestPost>({
+            selector: { type: 'post' },
+            populate: blogPopulateConfig,
+          }),
+        { pouchdb: db }
+      )
+
+      await waitForNextUpdate(result)
+
+      expect(result.current.state).toBe('done')
+      expect(result.current.docs.length).toBeGreaterThan(0)
+
+      // Each post should have all relationships populated
+      result.current.docs.forEach(doc => {
+        const populated = doc as TestPost & {
+          site: TestSite
+          author: TestUser
+          category: TestCategory
+        }
+
+        expect(populated.site).toBeDefined()
+        expect(populated.site.name).toBeDefined()
+
+        expect(populated.author).toBeDefined()
+        expect(populated.author.name).toBeDefined()
+
+        expect(populated.category).toBeDefined()
+        expect(populated.category.name).toBeDefined()
+      })
     })
 
-    it('should handle e-commerce scenario with products and relationships', async () => {
-      // Simulate an e-commerce application with products, categories, vendors
-
-      // Add e-commerce test data
-      await db.bulkDocs([
-        { _id: 'vendor_1', name: 'Tech Vendor', email: 'vendor@tech.com' },
-        {
-          _id: 'product_1',
-          name: 'Laptop',
-          vendor_id: 'vendor_1',
-          category_id: 'cat_1',
-        },
-      ])
-
-      const ecommercePopulateConfig: PopulateConfig = {
-        vendor_id: { as: 'vendor' },
-        category_id: { as: 'category' },
-      }
-
-      expect(ecommercePopulateConfig).toBeDefined()
-    })
-
-    it('should handle social media scenario with users and relationships', async () => {
-      // Simulate a social media application with posts, users, comments
-
-      // Add social media test data
-      await db.bulkDocs([
-        {
-          _id: 'comment_1',
-          text: 'Great post!',
-          post_id: 'post_1',
-          author_id: 'user_2',
-        },
-        { _id: 'like_1', post_id: 'post_1', user_id: 'user_2' },
-      ])
-
-      const socialPopulateConfig: PopulateConfig = {
-        post_id: { as: 'post' },
-        author_id: { as: 'author' },
-        user_id: { as: 'user' },
-      }
-
-      expect(socialPopulateConfig).toBeDefined()
-    })
-  })
-
-  describe('Edge Cases and Boundary Conditions', () => {
-    it('should handle empty document sets with populate', async () => {
-      // Test populate behavior with empty results
-
+    it('should handle updates to populated documents across hooks', async () => {
       const populateConfig: PopulateConfig = {
         site_id: { as: 'site' },
       }
 
-      // This would test that populate works correctly with empty document sets
-      expect(populateConfig).toBeDefined()
+      // Start with useDoc
+      const { result: docResult } = renderHook(
+        () => useDoc<TestPost>('post_1', { populate: populateConfig }),
+        { pouchdb: db }
+      )
+
+      await waitForNextUpdate(docResult)
+
+      const initialDoc = docResult.current.doc as TestPost & { site: TestSite }
+      expect(initialDoc.site.name).toBe('Tech Blog')
+
+      // Update the referenced site
+      const site = await db.get<TestSite>('site_1')
+      await db.put({
+        ...site,
+        name: 'Updated Tech Blog',
+      })
+
+      // Test that useFind gets the updated data
+      const { result: findResult } = renderHook(
+        () =>
+          useFind<TestPost>({
+            selector: { type: 'post', _id: 'post_1' },
+            populate: populateConfig,
+          }),
+        { pouchdb: db }
+      )
+
+      await waitForNextUpdate(findResult)
+
+      const findDoc = findResult.current.docs[0] as TestPost & {
+        site: TestSite
+      }
+      expect(findDoc.site.name).toBe('Updated Tech Blog')
+    })
+  })
+
+  describe('Edge Cases', () => {
+    it('should handle empty document sets with populate', async () => {
+      const { result } = renderHook(
+        () =>
+          useFind<TestPost>({
+            selector: { type: 'post', _id: 'nonexistent' },
+            populate: { site_id: { as: 'site' } },
+          }),
+        { pouchdb: db }
+      )
+
+      await waitForNextUpdate(result)
+
+      expect(result.current.state).toBe('done')
+      expect(result.current.docs).toHaveLength(0)
+      // Should not throw errors with empty results
     })
 
-    it('should handle very large document sets with populate', async () => {
-      // Test populate behavior with large result sets
-
-      // Create a large number of test documents
-      const largeDocs = Array.from({ length: 1000 }, (_, i) => ({
-        _id: `large_post_${i}`,
-        type: 'post',
-        title: `Large Post ${i}`,
-        site_id: 'site_1',
-        author_id: 'user_1',
-      }))
+    it('should handle large document sets with populate efficiently', async () => {
+      // Create many test documents
+      const largeDocs = Array.from(
+        { length: 50 },
+        (_, i) =>
+          ({
+            _id: `large_post_${i}`,
+            type: 'post',
+            title: `Large Post ${i}`,
+            site_id: 'site_1',
+            author_id: 'user_1',
+          } as TestPost)
+      )
 
       await db.bulkDocs(largeDocs)
 
-      const populateConfig: PopulateConfig = {
-        site_id: { as: 'site' },
-        author_id: { as: 'author' },
-      }
+      const startTime = Date.now()
 
-      expect(populateConfig).toBeDefined()
-    })
+      const { result } = renderHook(
+        () =>
+          useFind<TestPost>({
+            selector: { type: 'post' },
+            limit: 100, // Override PouchDB v9 default limit of 25
+            populate: {
+              site_id: { as: 'site' },
+              author_id: { as: 'author' },
+            },
+          }),
+        { pouchdb: db }
+      )
 
-    it('should handle circular reference scenarios', async () => {
-      // Test populate behavior with potential circular references
+      await waitForNextUpdate(result)
 
-      // Add documents that could create circular references
-      await db.bulkDocs([
-        { _id: 'parent_1', name: 'Parent Category', parent_id: 'parent_2' },
-        { _id: 'parent_2', name: 'Parent Category 2', parent_id: 'parent_1' },
-      ])
+      const endTime = Date.now()
+      const duration = endTime - startTime
 
-      const circularPopulateConfig: PopulateConfig = {
-        parent_id: { as: 'parent' },
-      }
+      expect(result.current.state).toBe('done')
+      expect(result.current.docs.length).toBeGreaterThanOrEqual(53)
 
-      // This would test that populate handles circular references gracefully
-      expect(circularPopulateConfig).toBeDefined()
-    })
+      // Should handle large sets efficiently
+      expect(duration).toBeLessThan(2000)
 
-    it('should handle mixed document types in populate results', async () => {
-      // Test populate behavior when referenced documents have different types
+      // Verify all documents are properly populated
+      result.current.docs.forEach(doc => {
+        const populated = doc as TestPost & {
+          site: TestSite
+          author: TestUser
+        }
 
-      const mixedPopulateConfig: PopulateConfig = {
-        site_id: { as: 'site' }, // No type specified - should match any type
-      }
-
-      expect(mixedPopulateConfig).toBeDefined()
-    })
-  })
-
-  describe('Type Safety Integration', () => {
-    it('should maintain type safety across hook integrations', () => {
-      // Test that TypeScript types work correctly with populate
-
-      interface Post {
-        _id: string
-        _rev: string
-        title: string
-        site_id: string
-      }
-
-      interface Site {
-        _id: string
-        _rev: string
-        name: string
-        domain: string
-      }
-
-      type PopulatedPost = Post & {
-        site: Site
-      }
-
-      // This would test that the type system correctly infers populated types
-      const samplePopulatedPost: PopulatedPost = {
-        _id: 'post_1',
-        _rev: '1-abc',
-        title: 'Test Post',
-        site_id: 'site_1',
-        site: {
-          _id: 'site_1',
-          _rev: '1-def',
-          name: 'Test Site',
-          domain: 'test.com',
-        },
-      }
-
-      expect(samplePopulatedPost).toBeDefined()
+        expect(populated.site).toBeDefined()
+        expect(populated.author).toBeDefined()
+      })
     })
   })
 })
