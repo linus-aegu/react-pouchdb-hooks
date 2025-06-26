@@ -32,7 +32,7 @@ const PouchContext = /*#__PURE__*/ createContext<{
 })
 
 if (process.env.NODE_ENV !== 'production') {
-  PouchContext.displayName = 'UsePouchDBContext'
+  PouchContext.displayName = 'reactPouchDBHooksContext'
 }
 
 /**
@@ -61,7 +61,7 @@ export type ProviderArguments =
 
 /**
  * Create a context to provide access to PouchDB databases.
- * All hooks of usePouchDB will use this context.
+ * All hooks of reactPouchDBHooks will use this context.
  * @param args React arguments.
  */
 export function Provider(args: ProviderArguments): React.ReactElement {
@@ -187,7 +187,7 @@ function useAddSubscriptionManager(
 }
 
 /**
- * Provides access to the Database & SubscriptionManager pair in the usePouchDB-Context.
+ * Provides access to the Database & SubscriptionManager pair in the reactPouchDBHooks-Context.
  * @param name Name of the Database or its overwritten name. Defaults to "default".
  */
 export function useContext(name?: string): PouchContextObject {

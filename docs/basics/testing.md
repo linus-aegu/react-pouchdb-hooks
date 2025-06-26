@@ -45,7 +45,7 @@ library, specialized in testing React Hooks.
 
 The documentation for it can be found on https://react-hooks-testing-library.com/.
 
-You can use it to test your own hooks. Be they extensions of hooks from `usePouchDB` or your own.
+You can use it to test your own hooks. Be they extensions of hooks from `reactPouchDBHooks` or your own.
 
 ### React Testing Library
 
@@ -158,7 +158,7 @@ multiple docs in one go.
 
 ### Hooks
 
-To test hooks that depend on one of `usePouchDB`'s hooks, you also must warp it in
+To test hooks that depend on one of `reactPouchDBHooks`'s hooks, you also must warp it in
 [`<Provider />`](../api/provider.md).
 
 **react-hooks-testing-library**'s `renderHook` function can receive in the second argument a warper

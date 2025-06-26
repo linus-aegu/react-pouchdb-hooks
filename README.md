@@ -10,16 +10,16 @@
 
 ## Overview
 
-usePouchDB is a collection of React Hooks to access data in a PouchDB database from React components.
+reactPouchDBHooks is a collection of React Hooks to access data in a PouchDB database from React components.
 
-The goal of usePouchDB is to ease the use of PouchDB with React. Enabling developers to create
+The goal of reactPouchDBHooks is to ease the use of PouchDB with React. Enabling developers to create
 [offline first apps](http://hood.ie/blog/say-hello-to-offline-first.html).
 
 ## Quick-start
 
 [You can find the Getting Started docs here](https://christopher-astfalk.de/use-pouchdb) (or on [GitHub](./docs/)).
 
-These docs walk you through setting up PouchDB and usePouchDB. They give you also a quick
+These docs walk you through setting up PouchDB and reactPouchDBHooks. They give you also a quick
 introduction to [PouchDB](https://pouchdb.com/) and [Apache CouchDB](https://couchdb.apache.org/).
 But [PouchDB's Guides](https://pouchdb.com/guides/) are recommended to learn PouchDB.
 
@@ -30,7 +30,7 @@ only want to quick start, read on...
 
 ### Installation
 
-usePouchDB requires **React 16.8.3 or later**.
+reactPouchDBHooks requires **React 16.8.3 or later**.
 
 ```sh
 npm install use-pouchdb
@@ -66,9 +66,9 @@ npm install pouchdb-find
 yarn add pouchdb-find
 ```
 
-### Bind usePouchDB
+### Bind reactPouchDBHooks
 
-usePouchDB exports a `<Provider />` to make one or multiple PouchDB databases available to its
+reactPouchDBHooks exports a `<Provider />` to make one or multiple PouchDB databases available to its
 components sub-tree.
 
 ```jsx
@@ -142,8 +142,8 @@ export default function Post({ postId }) {
 
 ## Changelog
 
-usePouchDB follows [semantic versioning](https://semver.org/). To see a changelog with all
-usePouchDB releases, check out the
+reactPouchDBHooks follows [semantic versioning](https://semver.org/). To see a changelog with all
+reactPouchDBHooks releases, check out the
 [Github releases page](https://github.com/linus-aegu/react-pouchdb-hooks/releases).
 
 ## Contributing

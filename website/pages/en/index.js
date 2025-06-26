@@ -126,7 +126,7 @@ class Index extends React.Component {
         {[
           {
             content:
-              'usePouchDB is a collection of hooks, which allow you to access [PouchDB]() ' +
+              'reactPouchDBHooks is a collection of hooks, which allow you to access [PouchDB]() ' +
               'directly from your components. All the extendability of hooks comes along with it.',
             image: `${baseUrl}img/undraw_react.svg`,
             imageAlign: 'top',
@@ -134,7 +134,7 @@ class Index extends React.Component {
           },
           {
             content:
-              'usePouchDBs hooks are inspired by PouchDB methods, ' +
+              'reactPouchDBHookss hooks are inspired by PouchDB methods, ' +
               'and use similar options and return their results. ' +
               'Allowing you to bring all your knowledge along.',
             image: `${baseUrl}img/undraw_certification.svg`,

@@ -6,7 +6,7 @@ title: Add the Provider
 Now we'll enter React land!
 
 First we need to create a PouchDB database and make it available to our app. To do this, we wrap our app with the
-[`<Provider />`](../api/provider.md) API provided by usePouchDB. But unlike with
+[`<Provider />`](../api/provider.md) API provided by reactPouchDBHooks. But unlike with
 [React-Redux's `<Provider />`](https://react-redux.js.org/api/provider) we won't be doing it in `index.js`, but in
 the `App.js` component.
 

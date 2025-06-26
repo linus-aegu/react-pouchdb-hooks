@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Describe a scenario in which usePouchDB behaves unexpectedly
+about: Describe a scenario in which reactPouchDBHooks behaves unexpectedly
 title: ''
 labels: bug
 assignees: ''

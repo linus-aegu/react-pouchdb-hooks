@@ -3,33 +3,33 @@ id: quick_start
 title: Quick Start
 ---
 
-[usePouchDB](https://github.com/linus-aegu/react-pouchdb-hooks) is a collection of _React Hooks_ to access data in a
+[reactPouchDBHooks](https://github.com/linus-aegu/react-pouchdb-hooks) is a collection of _React Hooks_ to access data in a
 _PouchDB database_.
 
 ## Purpose
 
-usePouchDB is intended to be used by small
+reactPouchDBHooks is intended to be used by small
 [CRUD](https://en.wikipedia.org/wiki/Create,_read,_update_and_delete 'CRUD on Wikipedia') apps and more complicated
 Web-Apps alike. It was originally created by me, after I realised that with [PouchDB](https://pouchdb.com/) (and
 its [vast plugin ecosystem](https://pouchdb.com/external.html 'List of plugins for PouchDB')),
 [CouchDB](https://couchdb.apache.org/) as the data backend and [React](https://reactjs.org/) with
 [Hooks](https://reactjs.org/docs/hooks-intro.html), you have everything you need to build a CRUD Web-App.
 
-> Note that usePouchDB is, only optimised for local DBs and not for accessing a DB over
+> Note that reactPouchDBHooks is, only optimised for local DBs and not for accessing a DB over
 > HTTP! But you can still use it over HTTP.
 >
 > It subscribes to all changes and once for every used view! And every subscription is a HTTP
 > request. It will still work, but when you use views, it could exceed the 6 concurrent request
 > per domain limit on HTTP 1.1.
 >
-> When you restrict yourself to not use views, then usePouchDB should work well over HTTP.
+> When you restrict yourself to not use views, then reactPouchDBHooks should work well over HTTP.
 > Or if you use **HTTP 2** or newer, that this limitation doesn't matter!
 
 ## Installation
 
-usePouchDB requires **React 16.8.3 or later**.
+reactPouchDBHooks requires **React 16.8.3 or later**.
 
-To use usePouchDB with your React app:
+To use reactPouchDBHooks with your React app:
 
 ```sh
 npm install use-pouchdb
@@ -61,7 +61,7 @@ yarn add -D pouchdb-browser
 
 ## Provider
 
-usePouchDB provides a `<Provider />`, to make a PouchDB database available to its child components.
+reactPouchDBHooks provides a `<Provider />`, to make a PouchDB database available to its child components.
 
 Please visit [`<Provider />`'s API docs](../api/provider.md) for its complete API.
 
@@ -114,7 +114,7 @@ ReactDOM.render(
 
 ## useDoc
 
-usePouchDB provides a `useDoc` hook to access a single document. It automatically subscribes to updates of that
+reactPouchDBHooks provides a `useDoc` hook to access a single document. It automatically subscribes to updates of that
 document.
 
 Please visit [`useDoc`'s API docs](../api/use-doc.md) for more options.

@@ -138,7 +138,7 @@ ReactDOM.render(
 
 ### Usage with React Router
 
-I recommend using `usePouchDB` with an routing solution, like
+I recommend using `reactPouchDBHooks` with an routing solution, like
 [React Router](https://reacttraining.com/react-router/).
 
 ```jsx
@@ -210,7 +210,7 @@ ReactDOM.render(
 )
 ```
 
-While you don't need to use Redux and can build full apps using only usePouchDB.
+While you don't need to use Redux and can build full apps using only reactPouchDBHooks.
 You might already use Redux. Or if you want to share complicated derived state between multiple
 components Redux might be a tool for you.
 

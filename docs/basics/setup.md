@@ -25,9 +25,9 @@ visit your app open http://localhost:3000/.
 
 Your app client is in `src/`. When ever you change something, the development server will live reload your app!
 
-## PouchDB and usePouchDB
+## PouchDB and reactPouchDBHooks
 
-Next up is **PouchDB**. Lets install **PouchDB** and **usePouchDB**:
+Next up is **PouchDB**. Lets install **PouchDB** and **reactPouchDBHooks**:
 
 <!--DOCUSAURUS_CODE_TABS-->
 <!--npm-->

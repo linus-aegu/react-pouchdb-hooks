@@ -429,4 +429,4 @@ Thats it!
 If you didn't yet, you could read the [PouchDB's guide](https://pouchdb.com/guides/), or their
 [Getting Started Guide](https://pouchdb.com/getting-started.html).
 
-I think we are now ready for the first tutorial for `usePouchDB`!
+I think we are now ready for the first tutorial for `reactPouchDBHooks`!

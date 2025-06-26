@@ -12,7 +12,7 @@ test('should export the provider', () => {
   expect(typeof Provider).toBe('function')
 })
 
-test('should export usePouchDB', () => {
+test('should export reactPouchDBHooks', () => {
   expect(usePouch).toBeTruthy()
   expect(typeof usePouch).toBe('function')
 })
