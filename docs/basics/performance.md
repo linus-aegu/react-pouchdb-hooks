@@ -26,7 +26,7 @@ You can configure batching behavior through the Provider:
 ```jsx
 import React from 'react'
 import PouchDB from 'pouchdb-browser'
-import { Provider } from 'use-pouchdb'
+import { Provider } from '@aegu/react-pouchdb-hooks'
 
 const db = new PouchDB('local')
 

@@ -124,7 +124,7 @@ This is the recommended usage.
 
 ```jsx
 import React from 'react'
-import { useFind } from 'use-pouchdb'
+import { useFind } from '@aegu/react-pouchdb-hooks'
 
 export default function StoryList() {
   const { docs, loading, error } = useFind({
@@ -169,7 +169,7 @@ export default function StoryList() {
 
 ```jsx
 import React from 'react'
-import { useFind } from 'use-pouchdb'
+import { useFind } from '@aegu/react-pouchdb-hooks'
 
 export default function StoryList() {
   const { docs, loading, error } = useFind({
@@ -210,7 +210,7 @@ export default function StoryList() {
 
 ```jsx
 import React from 'react'
-import { useFind } from 'use-pouchdb'
+import { useFind } from '@aegu/react-pouchdb-hooks'
 
 export default function StoryList({ isLocalReady }) {
   const { docs, loading, error } = useFind({
@@ -253,7 +253,7 @@ export default function StoryList({ isLocalReady }) {
 
 ```jsx
 import React from 'react'
-import { useFind } from 'use-pouchdb'
+import { useFind } from '@aegu/react-pouchdb-hooks'
 
 export default function BlogPosts() {
   const { docs, loading, error } = useFind({
@@ -313,7 +313,7 @@ export default function BlogPosts() {
 
 ```jsx
 import React from 'react'
-import { useFind } from 'use-pouchdb'
+import { useFind } from '@aegu/react-pouchdb-hooks'
 
 export default function Orders() {
   const { docs, loading, error } = useFind({

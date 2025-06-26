@@ -41,7 +41,7 @@ Without populate, you'd need to fetch the post, then separately fetch the author
 
 ```jsx
 import React from 'react'
-import { useDoc } from 'use-pouchdb'
+import { useDoc } from '@aegu/react-pouchdb-hooks'
 
 export function BlogPost({ postId }) {
   const {
@@ -97,7 +97,7 @@ You can populate references within populated documents. For example, if authors 
 
 ```jsx
 import React from 'react'
-import { useDoc } from 'use-pouchdb'
+import { useDoc } from '@aegu/react-pouchdb-hooks'
 
 export function BlogPostWithCompany({ postId }) {
   const {
@@ -144,7 +144,7 @@ If your referenced documents are in different databases, specify the `db` option
 
 ```jsx
 import React from 'react'
-import { useFind } from 'use-pouchdb'
+import { useFind } from '@aegu/react-pouchdb-hooks'
 
 export function Orders() {
   const {
@@ -199,7 +199,7 @@ Populate also works with arrays of IDs:
 
 ```jsx
 import React from 'react'
-import { useDoc } from 'use-pouchdb'
+import { useDoc } from '@aegu/react-pouchdb-hooks'
 
 export function OrderDetails({ orderId }) {
   const {

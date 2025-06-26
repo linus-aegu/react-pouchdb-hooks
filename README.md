@@ -1,9 +1,9 @@
-# usePouchDB
+# @aegu/react-pouchdb-hooks
 
-> **Note**: This is a fork of the original [use-pouchdb](https://github.com/Terreii/use-pouchdb) library by [Christopher Astfalk](https://christopher-astfalk.de/). This fork includes performance improvements, enhanced features, and continued maintenance. All credit for the original design and implementation goes to the original author.
+> **Note**: This is a fork of the original [use-pouchdb](https://github.com/linus-aegu/react-pouchdb-hooks) library by [Christopher Astfalk](https://christopher-astfalk.de/). This fork includes performance improvements, enhanced features, and continued maintenance. All credit for the original design and implementation goes to the original author.
 
 [![semantic-release](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg)](https://github.com/semantic-release/semantic-release)
-[![Known Vulnerabilities](https://snyk.io/test/github/Terreii/use-pouchdb/badge.svg?targetFile=package.json)](https://snyk.io/test/github/Terreii/use-pouchdb?targetFile=package.json)
+[![Known Vulnerabilities](https://snyk.io/test/github/linus-aegu/react-pouchdb-hooks/badge.svg?targetFile=package.json)](https://snyk.io/test/github/linus-aegu/react-pouchdb-hooks?targetFile=package.json)
 [![npm](https://img.shields.io/npm/v/use-pouchdb)](https://www.npmjs.com/package/use-pouchdb)
 
 [React Hooks](https://reactjs.org/) for [PouchDB](https://pouchdb.com/).
@@ -76,7 +76,7 @@ import React from 'react'
 import ReactDOM from 'react-dom'
 import PouchDB from 'pouchdb-browser'
 
-import { Provider } from 'use-pouchdb'
+import { Provider } from '@aegu/react-pouchdb-hooks'
 
 import App from './App'
 
@@ -116,7 +116,7 @@ subscribes to updates of that document and automatically loads the new version.
 
 ```jsx
 import React from 'react'
-import { useDoc } from 'use-pouchdb'
+import { useDoc } from '@aegu/react-pouchdb-hooks'
 
 export default function Post({ postId }) {
   const { doc, loading, error } = useDoc(postId)
@@ -144,13 +144,13 @@ export default function Post({ postId }) {
 
 usePouchDB follows [semantic versioning](https://semver.org/). To see a changelog with all
 usePouchDB releases, check out the
-[Github releases page](https://github.com/Terreii/use-pouchdb/releases).
+[Github releases page](https://github.com/linus-aegu/react-pouchdb-hooks/releases).
 
 ## Contributing
 
 Contributions in all forms are welcomed. ♡
 
-If you have questions, [Contributing.md](https://github.com/Terreii/use-pouchdb/blob/latest/CONTRIBUTING.md) might answer your questions.
+If you have questions, [Contributing.md](https://github.com/linus-aegu/react-pouchdb-hooks/blob/latest/CONTRIBUTING.md) might answer your questions.
 
 To create a welcoming project to all, this project uses and enforces a
-[Code of Conduct](https://github.com/Terreii/use-pouchdb/blob/latest/CODE_OF_CONDUCT.md).
+[Code of Conduct](https://github.com/linus-aegu/react-pouchdb-hooks/blob/latest/CODE_OF_CONDUCT.md).

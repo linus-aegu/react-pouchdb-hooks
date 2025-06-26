@@ -168,7 +168,7 @@ var designDoc = {
 
 ```jsx
 import React from 'react'
-import { useView } from 'use-pouchdb'
+import { useView } from '@aegu/react-pouchdb-hooks'
 import { ErrorMessage } from './ErrorMessage'
 
 export function ListAllOfTag({ tag }) {
@@ -222,7 +222,7 @@ var designDoc = {
 
 ```jsx
 import React from 'react'
-import { useView } from 'use-pouchdb'
+import { useView } from '@aegu/react-pouchdb-hooks'
 import { ErrorMessage } from './ErrorMessage'
 
 export function ListAllTags() {
@@ -289,7 +289,7 @@ var designDoc = {
 
 ```jsx
 import React from 'react'
-import { useView } from 'use-pouchdb'
+import { useView } from '@aegu/react-pouchdb-hooks'
 import { ErrorMessage } from './ErrorMessage'
 
 export function BankAccountChange({ year }) {
@@ -341,7 +341,7 @@ var designDoc = {
 
 ```jsx
 import React from 'react'
-import { useView } from 'use-pouchdb'
+import { useView } from '@aegu/react-pouchdb-hooks'
 import { ErrorMessage } from './ErrorMessage'
 
 export function ListAllOfTag({ tag, isLocalReady }) {
@@ -374,7 +374,7 @@ export function ListAllOfTag({ tag, isLocalReady }) {
 
 ```jsx
 import React from 'react'
-import { useView } from 'use-pouchdb'
+import { useView } from '@aegu/react-pouchdb-hooks'
 
 export function ProductsByCategory() {
   const { rows, loading, error } = useView('catalog/by_category', {
@@ -426,7 +426,7 @@ You can combine populate with view statistics for rich reporting:
 
 ```jsx
 import React from 'react'
-import { useView } from 'use-pouchdb'
+import { useView } from '@aegu/react-pouchdb-hooks'
 
 export function SalesByRegion() {
   const { rows, loading, error } = useView('sales/by_region', {

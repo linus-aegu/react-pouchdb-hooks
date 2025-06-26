@@ -68,7 +68,7 @@ Once the maintainers get involved, they will follow a documented series of steps
 You may get in touch with the maintainer team through any of the following methods:
 
 - Through email:
-  - [christopher.astfalk@icloud.com](mailto:christopher.astfalk@icloud.com) (Christopher Astfalk)
+  - [linus@aegu.de](mailto:linus@aegu.de) (Linus Gubenis)
 
 ### Further Enforcement
 

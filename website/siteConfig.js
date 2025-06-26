@@ -21,17 +21,17 @@ const users = [
 ]
 
 const siteConfig = {
-  title: 'usePouchDB', // Title for your website.
+  title: 'react-pouchdb-hooks', // Title for your website.
   tagline: 'Access PouchDB in React Components',
-  url: 'https://christopher-astfalk.de', // Your website URL
+  url: 'https://aegu.de', // Your website URL
   baseUrl: '/use-pouchdb/', // Base URL for your project */
   // For github.io type URLs, you would set the url and baseUrl like:
   //   url: 'https://facebook.github.io',
   //   baseUrl: '/test-site/',
 
   // Used for publishing and more
-  projectName: 'use-pouchdb',
-  organizationName: 'Terreii',
+  projectName: 'react-pouchdb-hooks',
+  organizationName: 'linus-aegu',
   // For top-level user or org sites, the organization is still the same.
   // e.g., for the https://JoelMarcey.github.io site, it would be set like...
   //   organizationName: 'JoelMarcey'
@@ -43,7 +43,7 @@ const siteConfig = {
     { page: 'help', label: 'Help' },
     // {blog: true, label: 'Blog'},
     {
-      href: 'https://github.com/Terreii/use-pouchdb',
+      href: 'https://github.com/linus-aegu/react-pouchdb-hooks',
       label: 'GitHub',
     },
   ],
@@ -77,7 +77,7 @@ const siteConfig = {
   */
 
   // This copyright info is used in /core/Footer.js and blog RSS/Atom feeds.
-  copyright: `Copyright © ${new Date().getFullYear()} Christopher Astfalk`,
+  copyright: `Copyright © ${new Date().getFullYear()} Linus Gubenis`,
 
   highlight: {
     // Highlight.js theme to use for syntax highlighting in code blocks.
@@ -108,7 +108,7 @@ const siteConfig = {
 
   // You may provide arbitrary config keys to be used as needed by your
   // template. For example, if you need your repo's URL...
-  repoUrl: 'https://github.com/Terreii/use-pouchdb',
+  repoUrl: 'https://github.com/linus-aegu/react-pouchdb-hooks',
 }
 
 module.exports = siteConfig

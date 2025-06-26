@@ -12,7 +12,7 @@ Updating will be the job of our updated `<Todo />` component:
 ```jsx
 // Todo.js
 import React from 'react'
-import { usePouch } from 'use-pouchdb'
+import { usePouch } from '@aegu/react-pouchdb-hooks'
 
 export default function Todo({ todo }) {
   const db = usePouch()
@@ -104,7 +104,7 @@ Update `<TodoList />` to be similar to this:
 ```jsx
 // TodoList.js
 import React, { useState, useMemo } from 'react'
-import { useAllDocs } from 'use-pouchdb'
+import { useAllDocs } from '@aegu/react-pouchdb-hooks'
 import Todo from './Todo'
 import VisibilityFilters from './VisibilityFilters'
 
@@ -230,7 +230,7 @@ Next add `pouchdb-find` to PouchDB in `App.js`:
 ```jsx
 import PouchDB from 'pouchdb-browser'
 import PouchDBFind from 'pouchdb-find'
-import { Provider } from 'use-pouchdb'
+import { Provider } from '@aegu/react-pouchdb-hooks'
 
 import AddTodo from './AddTodo'
 import TodoList from './TodoList'
@@ -246,7 +246,7 @@ After that, we can update `<TodoList />` to use Mango queries:
 ```jsx
 // TodoList.js
 import React, { useState } from 'react'
-import { useFind } from 'use-pouchdb'
+import { useFind } from '@aegu/react-pouchdb-hooks'
 import Todo from './Todo'
 import VisibilityFilters from './VisibilityFilters'
 

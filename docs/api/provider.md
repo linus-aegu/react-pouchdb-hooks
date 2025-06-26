@@ -83,7 +83,7 @@ In the Examples below `<App />` is the top most component, that contains all of 
 import React from 'react'
 import ReactDOM from 'react-dom'
 import PouchDB from 'pouchdb-browser'
-import { Provider } from 'use-pouchdb'
+import { Provider } from '@aegu/react-pouchdb-hooks'
 
 import { App } from './App'
 
@@ -115,7 +115,7 @@ import React from 'react'
 import ReactDOM from 'react-dom'
 import PouchDB from 'pouchdb-browser'
 
-import { Provider } from 'use-pouchdb'
+import { Provider } from '@aegu/react-pouchdb-hooks'
 
 import App from './App'
 
@@ -146,7 +146,7 @@ import React from 'react'
 import ReactDOM from 'react-dom'
 import { BrowserRouter as Router, Switch, Route } from 'react-router-dom'
 import PouchDB from 'pouchdb-browser'
-import { Provider } from 'use-pouchdb'
+import { Provider } from '@aegu/react-pouchdb-hooks'
 
 import { App } from './App'
 import { Other } from './Other'
@@ -191,7 +191,7 @@ import React from 'react'
 import ReactDOM from 'react-dom'
 import { Provider } from 'react-redux'
 import PouchDB from 'pouchdb-browser'
-import { Provider as PouchProvider } from 'use-pouchdb'
+import { Provider as PouchProvider } from '@aegu/react-pouchdb-hooks'
 
 import { App } from './App'
 import createStore from './createReduxStore'
@@ -224,7 +224,7 @@ Databases can be made available to a subtree, while still be able to access all 
 import React from 'react'
 import ReactDOM from 'react-dom'
 import PouchDB from 'pouchdb-browser'
-import { Provider } from 'use-pouchdb'
+import { Provider } from '@aegu/react-pouchdb-hooks'
 
 import { Main } from './Main'
 import { UserMenu } from './UserMenu'
@@ -247,7 +247,7 @@ and in UserMenu.js:
 ```jsx
 import React from 'react'
 import PouchDB from 'pouchdb-browser'
-import { Provider } from 'use-pouchdb'
+import { Provider } from '@aegu/react-pouchdb-hooks'
 
 // Menu will only have access to the remote database
 import Menu from './Menu'
@@ -275,7 +275,7 @@ You can configure the subscription batching behavior:
 import React from 'react'
 import ReactDOM from 'react-dom'
 import PouchDB from 'pouchdb-browser'
-import { Provider } from 'use-pouchdb'
+import { Provider } from '@aegu/react-pouchdb-hooks'
 
 import { App } from './App'
 

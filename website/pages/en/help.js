@@ -27,7 +27,7 @@ function Help(props) {
       title: 'Browse Docs',
     },
     {
-      content: `If your are stuck or have questions, ask them [on twitter](https://twitter.com/terreii) on on [GitHub](${repoUrl}).`,
+      content: `If your are stuck or have questions, ask them on [GitHub](${repoUrl}).`,
       title: 'Ask questions',
     },
     {
@@ -45,7 +45,7 @@ function Help(props) {
           </header>
           <p>
             This project is maintained by me,
-            <a href="https://christopher-astfalk.de/"> Christopher Astfalk</a>.
+            <a href="https://aegu.de/"> Linus Gubenis</a>.
           </p>
           <GridBlock contents={supportLinks} layout="threeColumn" />
         </div>

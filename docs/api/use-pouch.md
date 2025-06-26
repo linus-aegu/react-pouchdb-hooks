@@ -34,7 +34,7 @@ Access the pouchdb instance to start sync to another database. Read more about
 ```jsx
 import React, { useState, useEffect } from 'react'
 import PouchDB from 'pouchdb-browser'
-import { usePouch } from 'use-pouchdb'
+import { usePouch } from '@aegu/react-pouchdb-hooks'
 
 export function SyncComponent({ username, password }) {
   // get the database you want to sync
@@ -89,7 +89,7 @@ With access to the database, you can create your own hooks.
 
 ```javascript
 import { useCallback } from 'react'
-import { usePouch } from 'use-pouchdb'
+import { usePouch } from '@aegu/react-pouchdb-hooks'
 
 export function useAddBooking() {
   const db = usePouch()
@@ -169,7 +169,7 @@ export function NewBooking() {
 
 ```javascript
 import { useEffect } from 'react'
-import { usePouch } from 'use-pouchdb'
+import { usePouch } from '@aegu/react-pouchdb-hooks'
 
 function useSync(shouldSync) {
   const localDb = usePouch('local')

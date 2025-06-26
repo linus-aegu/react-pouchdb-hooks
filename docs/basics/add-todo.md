@@ -9,7 +9,7 @@ database. We are going to use the [`usePouch`](../api/use-pouch.md) hook for thi
 ```jsx
 // AddTodo.js
 import React, { useState } from 'react'
-import { usePouch } from 'use-pouchdb'
+import { usePouch } from '@aegu/react-pouchdb-hooks'
 
 export default function AddTodo() {
   const db = usePouch() // get the database
@@ -115,7 +115,7 @@ import React, { useState, useEffect } from 'react'
 import './App.css'
 
 import PouchDB from 'pouchdb-browser'
-import { Provider } from 'use-pouchdb'
+import { Provider } from '@aegu/react-pouchdb-hooks'
 
 import AddTodo from './AddTodo'
 

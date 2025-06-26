@@ -265,7 +265,7 @@ yarn add -D pouchdb-authentication
 ```jsx
 // Session.js
 import React, { useState, useEffect, useRef } from 'react'
-import { usePouch } from 'use-pouchdb'
+import { usePouch } from '@aegu/react-pouchdb-hooks'
 import PouchDB from 'pouchdb-browser'
 import PouchAuth from 'pouchdb-authentication'
 
@@ -630,7 +630,7 @@ Your `Session.js` should look something like this:
 ```jsx
 // Session.js
 import React, { useState, useEffect, useRef } from 'react'
-import { usePouch } from 'use-pouchdb'
+import { usePouch } from '@aegu/react-pouchdb-hooks'
 import PouchDB from 'pouchdb-browser'
 import PouchAuth from 'pouchdb-authentication'
 
@@ -853,7 +853,7 @@ import React, { useState, useEffect } from 'react'
 import './App.css'
 
 import PouchDB from 'pouchdb-browser'
-import { Provider } from 'use-pouchdb'
+import { Provider } from '@aegu/react-pouchdb-hooks'
 
 import AddTodo from './AddTodo'
 import Session from './Session'

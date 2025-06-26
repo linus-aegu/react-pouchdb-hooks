@@ -169,7 +169,7 @@ Let's test the addTodo from [**Add Todos**](./add-todo.md) extracted into a hook
 ```javascript
 // hooks.js
 import { useCallback } from 'react'
-import { usePouch } from 'use-pouchdb'
+import { usePouch } from '@aegu/react-pouchdb-hooks'
 
 // This hook returns a function, which we then call with the todo's text.
 export function useAddDoc() {
@@ -196,7 +196,7 @@ import React from 'react'
 import { renderHook } from '@testing-library/react-hooks'
 import PouchDB from 'pouchdb'
 import memory from 'pouchdb-adapter-memory'
-import { Provider } from 'use-pouchdb'
+import { Provider } from '@aegu/react-pouchdb-hooks'
 
 import { useAddDoc } from './hooks'
 

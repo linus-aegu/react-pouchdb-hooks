@@ -125,7 +125,7 @@ accordingly.
 
 ```jsx
 import React from 'react'
-import { useAllDocs } from 'use-pouchdb'
+import { useAllDocs } from '@aegu/react-pouchdb-hooks'
 import { ErrorMessage } from './ErrorMessage'
 
 export function Comments({ id }) {
@@ -168,7 +168,7 @@ export function Comments({ id }) {
 
 ```jsx
 import React from 'react'
-import { useAllDocs } from 'use-pouchdb'
+import { useAllDocs } from '@aegu/react-pouchdb-hooks'
 import { ErrorMessage } from './ErrorMessage'
 
 export function Related({ doc }) {
@@ -205,7 +205,7 @@ It is imported to remember that `options.startkey` and `options.endkey` switch, 
 
 ```jsx
 import React from 'react'
-import { useAllDocs } from 'use-pouchdb'
+import { useAllDocs } from '@aegu/react-pouchdb-hooks'
 import ms from 'milliseconds'
 import { ErrorMessage } from './ErrorMessage'
 
@@ -254,7 +254,7 @@ export function LastBookings() {
 
 ```jsx
 import React from 'react'
-import { useAllDocs } from 'use-pouchdb'
+import { useAllDocs } from '@aegu/react-pouchdb-hooks'
 import { ErrorMessage } from './ErrorMessage'
 
 export function Comments({ id, isLocalReady }) {
@@ -297,7 +297,7 @@ export function Comments({ id, isLocalReady }) {
 
 ```jsx
 import React from 'react'
-import { useAllDocs } from 'use-pouchdb'
+import { useAllDocs } from '@aegu/react-pouchdb-hooks'
 
 export function UserList() {
   const { rows, loading, error } = useAllDocs({
@@ -343,7 +343,7 @@ export function UserList() {
 
 ```jsx
 import React from 'react'
-import { useAllDocs } from 'use-pouchdb'
+import { useAllDocs } from '@aegu/react-pouchdb-hooks'
 
 export function OrderDetails({ orderIds }) {
   const { rows, loading, error } = useAllDocs({

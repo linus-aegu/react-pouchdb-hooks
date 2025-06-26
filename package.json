@@ -28,16 +28,16 @@
     "couchdb"
   ],
   "author": {
-    "name": "Christopher Astfalk",
-    "email": "christopher.astfalk@icloud.com",
-    "url": "https://christopher-astfalk.de/"
+    "name": "Linus Gubenis",
+    "email": "linus@aegu.de",
+    "url": "https://aegu.de/"
   },
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Terreii/use-pouchdb.git"
+    "url": "https://github.com/linus-aegu/react-pouchdb-hooks.git"
   },
-  "homepage": "https://terreii.github.io/use-pouchdb/",
+  "homepage": "https://linus-aegu.github.io/react-pouchdb-hooks/",
   "files": [
     "README.md",
     "lib"

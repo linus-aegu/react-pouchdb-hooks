@@ -87,7 +87,7 @@ interface PopulateConfig {
 ```jsx
 import React from 'react'
 import ReactMarkdown from 'react-markdown'
-import { useDoc } from 'use-pouchdb'
+import { useDoc } from '@aegu/react-pouchdb-hooks'
 import { ErrorMessage } from './ErrorMessage'
 
 export function PostViewer({ id }) {
@@ -124,7 +124,7 @@ export function PostViewer({ id }) {
 ```jsx
 import React from 'react'
 import ReactMarkdown from 'react-markdown'
-import { useDoc } from 'use-pouchdb'
+import { useDoc } from '@aegu/react-pouchdb-hooks'
 import { ErrorMessage } from './ErrorMessage'
 
 import { DocRenderer } from './DocRenderer'
@@ -162,7 +162,7 @@ If the `initialValue` is set, then the `options` must also be set (it can be an 
 ```jsx
 import React from 'react'
 import ReactMarkdown from 'react-markdown'
-import { useDoc } from 'use-pouchdb'
+import { useDoc } from '@aegu/react-pouchdb-hooks'
 import { ErrorMessage } from './ErrorMessage'
 
 export function PostViewer({ id }) {
@@ -197,7 +197,7 @@ initial value and edit it. Once it is saved/created, `useDoc` will fetch the new
 ```jsx
 import React from 'react'
 import ReactMarkdown from 'react-markdown'
-import { useDoc } from 'use-pouchdb'
+import { useDoc } from '@aegu/react-pouchdb-hooks'
 import { ErrorMessage } from './ErrorMessage'
 
 export function PostViewer({ id, isLocalReady }) {
@@ -235,7 +235,7 @@ export function PostViewer({ id, isLocalReady }) {
 
 ```jsx
 import React from 'react'
-import { useDoc } from 'use-pouchdb'
+import { useDoc } from '@aegu/react-pouchdb-hooks'
 
 export function UserProfile({ userId }) {
   const {
@@ -289,7 +289,7 @@ export function UserProfile({ userId }) {
 
 ```jsx
 import React from 'react'
-import { useDoc } from 'use-pouchdb'
+import { useDoc } from '@aegu/react-pouchdb-hooks'
 
 export function PostEditor({ postId }) {
   const {

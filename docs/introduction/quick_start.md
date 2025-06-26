@@ -3,7 +3,7 @@ id: quick_start
 title: Quick Start
 ---
 
-[usePouchDB](https://github.com/Terreii/use-pouchdb) is a collection of _React Hooks_ to access data in a
+[usePouchDB](https://github.com/linus-aegu/react-pouchdb-hooks) is a collection of _React Hooks_ to access data in a
 _PouchDB database_.
 
 ## Purpose
@@ -71,7 +71,7 @@ import React from 'react'
 import ReactDOM from 'react-dom'
 import PouchDB from 'pouchdb-browser'
 
-import { Provider } from 'use-pouchdb'
+import { Provider } from '@aegu/react-pouchdb-hooks'
 
 import App from './App'
 
@@ -91,7 +91,7 @@ import React from 'react'
 import ReactDOM from 'react-dom'
 import PouchDB from 'pouchdb-browser'
 
-import { Provider } from 'use-pouchdb'
+import { Provider } from '@aegu/react-pouchdb-hooks'
 
 import App from './App'
 
@@ -122,7 +122,7 @@ Please visit [`useDoc`'s API docs](../api/use-doc.md) for more options.
 ```jsx
 import React from 'react'
 
-import { useDoc } from 'use-pouchdb'
+import { useDoc } from '@aegu/react-pouchdb-hooks'
 
 export default function BlogPost({ id }) {
   const { doc, state, loading, error } = useDoc(id)
@@ -153,7 +153,7 @@ Please visit the [`useAllDocs` API docs](../api/use-all-docs.md) for more option
 ```jsx
 import React from 'react'
 
-import { useAllDocs } from 'use-pouchdb'
+import { useAllDocs } from '@aegu/react-pouchdb-hooks'
 
 export default function AllPosts() {
   const { rows, offset, total_rows, state, loading, error } = useAllDocs({
@@ -190,7 +190,7 @@ And CouchDBs [Mango query language docs](https://docs.couchdb.org/en/stable/api/
 
 ```jsx
 import React from 'react'
-import { useFind } from 'use-pouchdb'
+import { useFind } from '@aegu/react-pouchdb-hooks'
 
 export default function StoryList() {
   const { docs, warning, loading, state, error } = useFind({
@@ -241,7 +241,7 @@ query](https://pouchdb.com/api.html#query_database 'Documentation about db.query
 ```jsx
 import React from 'react'
 
-import { useView } from 'use-pouchdb'
+import { useView } from '@aegu/react-pouchdb-hooks'
 
 export default function Comments({ id }) {
   const { rows, offset, total_rows, state, loading, error } = useView(
@@ -279,7 +279,7 @@ to `<Provider />`.
 ```jsx
 import { useCallback } from 'react'
 
-import { usePouch } from 'use-pouchdb'
+import { usePouch } from '@aegu/react-pouchdb-hooks'
 
 export function useDelete(errorCallback) {
   const db = usePouch()

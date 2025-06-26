@@ -16,7 +16,7 @@ import React, { useState, useEffect } from 'react'
 import './App.css'
 
 import PouchDB from 'pouchdb-browser'
-import { Provider } from 'use-pouchdb'
+import { Provider } from '@aegu/react-pouchdb-hooks'
 
 export default function App() {
   const [db, setDB] = useState(() => new PouchDB('local'))

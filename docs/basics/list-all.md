@@ -11,7 +11,7 @@ Our `<Todo />` component takes the todo document as props and displays it.
 ```jsx
 // TodoList.js
 import React from 'react'
-import { useAllDocs } from 'use-pouchdb'
+import { useAllDocs } from '@aegu/react-pouchdb-hooks'
 import Todo from './Todo'
 
 export default function TodoList() {
@@ -82,7 +82,7 @@ import React, { useState, useEffect } from 'react'
 import './App.css'
 
 import PouchDB from 'pouchdb-browser'
-import { Provider } from 'use-pouchdb'
+import { Provider } from '@aegu/react-pouchdb-hooks'
 
 import AddTodo from './AddTodo'
 import TodoList from './TodoList'
