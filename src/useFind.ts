@@ -1,5 +1,4 @@
-import { useEffect, useRef, useCallback, useMemo } from 'react'
-import PouchDB from 'pouchdb-core'
+import { useEffect, useMemo } from 'react'
 import { matchesSelector } from 'pouchdb-selector-core'
 
 import { useContext } from './context'
@@ -124,14 +123,24 @@ export default function useFind<Content extends {}>(
           indexToUse = ddoc
         }
 
-        const result = (await pouch.find({
+        // Build query options, only including limit if it's defined
+        // PouchDB v9 treats limit: undefined differently than no limit property
+        const queryOptions: PouchDB.Find.FindRequest<Content> = {
           selector,
           fields: fieldsToFetch,
           sort,
-          limit,
           skip,
           use_index: indexToUse,
-        })) as PouchDB.Find.FindResponse<Content>
+        }
+
+        // Only add limit if it's actually defined (not undefined)
+        if (limit !== undefined) {
+          queryOptions.limit = limit
+        }
+
+        const result = (await pouch.find(
+          queryOptions
+        )) as PouchDB.Find.FindResponse<Content>
 
         if (isActive) {
           idsInResult.ids = new Set()
