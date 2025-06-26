@@ -7,17 +7,17 @@ export type DocsCallback<T extends {}> = (
 ) => void
 
 interface DocsSubscription {
-  changesFeed: PouchDB.Core.Changes<{}>
-  all: Set<DocsCallback<{}>>
-  ids: Map<PouchDB.Core.DocumentId, Set<DocsCallback<{}>>>
-  batchTimeout: number | null
+  changesFeed: PouchDB.Core.Changes<Record<string, unknown>>
+  all: Set<DocsCallback<Record<string, unknown>>>
+  ids: Map<PouchDB.Core.DocumentId, Set<DocsCallback<Record<string, unknown>>>>
+  batchTimeout: NodeJS.Timeout | null
   pendingChanges: Map<PouchDB.Core.DocumentId, PendingChange>
 }
 
 interface PendingChange {
   deleted: boolean
   id: PouchDB.Core.DocumentId
-  doc?: PouchDB.Core.Document<{}>
+  doc?: PouchDB.Core.Document<Record<string, unknown>>
   timestamp: number
 }
 
@@ -181,43 +181,6 @@ export default class SubscriptionManager {
     }
     this.#viewsSubscription.clear()
   }
-
-  private flushPendingChanges(subscription: DocsSubscription): void {
-    if (subscription.pendingChanges.size === 0) return
-
-    const changesToProcess = Array.from(subscription.pendingChanges.values())
-    subscription.pendingChanges.clear()
-    subscription.batchTimeout = null
-
-    for (const change of changesToProcess) {
-      this.processChange(subscription, change.deleted, change.id, change.doc)
-    }
-  }
-
-  private scheduleBatch(subscription: DocsSubscription): void {
-    if (subscription.batchTimeout) return
-
-    subscription.batchTimeout = setTimeout(() => {
-      this.flushPendingChanges(subscription)
-    }, this.#batchDelay)
-  }
-
-  private processChange(
-    subscription: DocsSubscription,
-    deleted: boolean,
-    id: PouchDB.Core.DocumentId,
-    doc?: PouchDB.Core.Document<{}>
-  ): void {
-    const hasAll = subscription.all.size > 0
-    const idSubscriptions = subscription.ids.get(id)
-
-    if (hasAll) {
-      notify(subscription.all, deleted, id, doc)
-    }
-    if (idSubscriptions) {
-      notify(idSubscriptions, deleted, id, doc)
-    }
-  }
 }
 
 function createDocSubscription(
@@ -244,7 +207,7 @@ function createDocSubscription(
         const pendingChange: PendingChange = {
           deleted: change.deleted || false,
           id: change.id,
-          doc,
+          doc: doc as PouchDB.Core.Document<Record<string, unknown>>,
           timestamp: Date.now(),
         }
 
@@ -282,16 +245,26 @@ function createDocSubscription(
               }
             }
           }
-        }, batchDelay)
+        }, batchDelay) as NodeJS.Timeout
       } else {
         const hasAll = docsSubscription.all.size > 0
         const idSubscriptions = docsSubscription.ids.get(change.id)
 
         if (hasAll) {
-          notify(docsSubscription.all, change.deleted || false, change.id, doc)
+          notify(
+            docsSubscription.all,
+            change.deleted || false,
+            change.id,
+            doc as PouchDB.Core.Document<Record<string, unknown>>
+          )
         }
         if (idSubscriptions) {
-          notify(idSubscriptions, change.deleted || false, change.id, doc)
+          notify(
+            idSubscriptions,
+            change.deleted || false,
+            change.id,
+            doc as PouchDB.Core.Document<Record<string, unknown>>
+          )
         }
       }
     })
@@ -308,10 +281,10 @@ function createDocSubscription(
 }
 
 function notify(
-  set: Set<DocsCallback<{}>>,
+  set: Set<DocsCallback<Record<string, unknown>>>,
   deleted: boolean,
   id: PouchDB.Core.DocumentId,
-  doc?: PouchDB.Core.Document<{}>
+  doc?: PouchDB.Core.Document<Record<string, unknown>>
 ) {
   for (const subscription of set) {
     try {

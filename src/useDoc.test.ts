@@ -10,6 +10,7 @@ import {
   sleep,
 } from './test-utils'
 import useDoc from './useDoc'
+import type { PopulateConfig } from './populate-types'
 
 PouchDB.plugin(memory)
 
@@ -919,5 +920,266 @@ describe('pouchdb get options', () => {
     })
 
     await other.destroy()
+  })
+})
+
+describe('populate functionality', () => {
+  interface TestPost {
+    _id: string
+    _rev: string
+    type: 'post'
+    title: string
+    site_id: string
+    author_id: string
+  }
+
+  interface TestSite {
+    _id: string
+    _rev: string
+    type: 'site'
+    name: string
+    domain: string
+  }
+
+  interface TestUser {
+    _id: string
+    _rev: string
+    type: 'user'
+    name: string
+    email: string
+  }
+
+  beforeEach(async () => {
+    // Create reference documents
+    await myPouch.put({
+      _id: 'site_1',
+      type: 'site',
+      name: 'Tech Blog',
+      domain: 'techblog.com',
+    } as TestSite)
+
+    await myPouch.put({
+      _id: 'user_1',
+      type: 'user',
+      name: 'John Doe',
+      email: 'john@example.com',
+    } as TestUser)
+
+    // Create test post
+    await myPouch.put({
+      _id: 'post_1',
+      type: 'post',
+      title: 'Test Post',
+      site_id: 'site_1',
+      author_id: 'user_1',
+    } as TestPost)
+  })
+
+  test('should populate single reference field', async () => {
+    const populateConfig: PopulateConfig = {
+      site_id: { as: 'site' },
+    }
+
+    const { result } = renderHook(
+      () => useDoc<TestPost>('post_1', { populate: populateConfig }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    expect(result.current.doc).toBeTruthy()
+    expect(result.current.doc?._id).toBe('post_1')
+    expect(result.current.doc?.title).toBe('Test Post')
+
+    // Check populated field
+    const populatedDoc = result.current.doc as TestPost & { site: TestSite }
+    expect(populatedDoc.site).toBeDefined()
+    expect(populatedDoc.site._id).toBe('site_1')
+    expect(populatedDoc.site.name).toBe('Tech Blog')
+    expect(populatedDoc.site.domain).toBe('techblog.com')
+  })
+
+  test('should populate multiple reference fields', async () => {
+    const populateConfig: PopulateConfig = {
+      site_id: { as: 'site' },
+      author_id: { as: 'author' },
+    }
+
+    const { result } = renderHook(
+      () => useDoc<TestPost>('post_1', { populate: populateConfig }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    expect(result.current.doc).toBeTruthy()
+
+    // Check populated fields
+    const populatedDoc = result.current.doc as TestPost & {
+      site: TestSite
+      author: TestUser
+    }
+    expect(populatedDoc.site).toBeDefined()
+    expect(populatedDoc.site.name).toBe('Tech Blog')
+
+    expect(populatedDoc.author).toBeDefined()
+    expect(populatedDoc.author.name).toBe('John Doe')
+    expect(populatedDoc.author.email).toBe('john@example.com')
+  })
+
+  test('should work without populate config', async () => {
+    const { result } = renderHook(() => useDoc<TestPost>('post_1'), {
+      pouchdb: myPouch,
+    })
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    expect(result.current.doc).toBeTruthy()
+    expect(result.current.doc?._id).toBe('post_1')
+    expect(result.current.doc?.title).toBe('Test Post')
+
+    // Should not have populated fields
+    const doc = result.current.doc as TestPost
+    expect((doc as unknown as { site?: unknown }).site).toBeUndefined()
+    expect(doc.author).toBeUndefined()
+  })
+
+  test('should handle missing references gracefully', async () => {
+    const populateConfig: PopulateConfig = {
+      site_id: { as: 'site' },
+      author_id: { as: 'author' },
+      nonexistent_id: { as: 'nonexistent' },
+    }
+
+    const { result } = renderHook(
+      () => useDoc<TestPost>('post_1', { populate: populateConfig }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    expect(result.current.doc).toBeTruthy()
+
+    // Check that existing references are populated
+    const populatedDoc = result.current.doc as TestPost & {
+      site: TestSite
+      author: TestUser
+    }
+    expect(populatedDoc.site).toBeDefined()
+    expect(populatedDoc.author).toBeDefined()
+
+    // Check that missing reference is not populated
+    expect(
+      (populatedDoc as unknown as { nonexistent?: unknown }).nonexistent
+    ).toBeUndefined()
+  })
+
+  test('should update populated data when document changes', async () => {
+    const populateConfig: PopulateConfig = {
+      site_id: { as: 'site' },
+    }
+
+    const { result } = renderHook(
+      () => useDoc<TestPost>('post_1', { populate: populateConfig }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    const firstDoc = result.current.doc as TestPost & { site: TestSite }
+    expect(firstDoc.site.name).toBe('Tech Blog')
+
+    // Create a new site
+    await myPouch.put({
+      _id: 'site_2',
+      type: 'site',
+      name: 'News Site',
+      domain: 'news.com',
+    } as TestSite)
+
+    // Update the post to reference the new site
+    const currentPost = await myPouch.get<TestPost>('post_1')
+    act(() => {
+      myPouch.put({
+        ...currentPost,
+        site_id: 'site_2',
+      })
+    })
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    const updatedDoc = result.current.doc as TestPost & { site: TestSite }
+    expect(updatedDoc.site.name).toBe('News Site')
+    expect(updatedDoc.site.domain).toBe('news.com')
+  })
+
+  test('should handle document that does not exist', async () => {
+    const populateConfig: PopulateConfig = {
+      site_id: { as: 'site' },
+    }
+
+    const { result } = renderHook(
+      () => useDoc<TestPost>('nonexistent_post', { populate: populateConfig }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('error')
+    expect(result.current.doc).toBeFalsy()
+    expect(result.current.error).toBeInstanceOf(Error)
+    expect(result.current.error?.status).toBe(404)
+  })
+
+  test('should populate any referenced document regardless of type', async () => {
+    // Create a document with different type but valid structure
+    await myPouch.put({
+      _id: 'site_different_type',
+      type: 'category', // Different type, but still a valid document
+      name: 'Category Site',
+      domain: 'category.com',
+    })
+
+    // Create post referencing this document
+    await myPouch.put({
+      _id: 'post_2',
+      type: 'post',
+      title: 'Test Post 2',
+      site_id: 'site_different_type',
+      author_id: 'user_1',
+    } as TestPost)
+
+    const populateConfig: PopulateConfig = {
+      site_id: { as: 'site' },
+      author_id: { as: 'author' },
+    }
+
+    const { result } = renderHook(
+      () => useDoc<TestPost>('post_2', { populate: populateConfig }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    const populatedDoc = result.current.doc as TestPost & {
+      site: unknown
+      author: TestUser
+    }
+
+    // Any document should be populated (no type filtering)
+    expect(populatedDoc.site).toBeDefined()
+    expect(populatedDoc.site.name).toBe('Category Site')
+    expect(populatedDoc.site.type).toBe('category')
+
+    // Author should still be populated
+    expect(populatedDoc.author).toBeDefined()
+    expect(populatedDoc.author.name).toBe('John Doe')
   })
 })

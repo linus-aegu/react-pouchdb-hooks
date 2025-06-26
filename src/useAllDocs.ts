@@ -3,12 +3,13 @@ import { useEffect } from 'react'
 import { useContext } from './context'
 import useStateMachine, { ResultType } from './state-machine'
 import { useDeepMemo, CommonOptions } from './utils'
+import { populateDocuments } from './usePopulate'
 
 /**
  * Get all docs or a slice of all docs and subscribe to their updates.
  * @param options PouchDB's allDocs options.
  */
-export default function useAllDocs<Content extends {}>(
+export default function useAllDocs<Content extends Record<string, unknown>>(
   options?: CommonOptions &
     (
       | PouchDB.Core.AllDocsWithKeyOptions
@@ -19,6 +20,8 @@ export default function useAllDocs<Content extends {}>(
 ): ResultType<PouchDB.Core.AllDocsResponse<Content>> {
   const { pouchdb: pouch, subscriptionManager } = useContext(options?.db)
 
+  // Extract populate option
+  const { populate, ...allDocsOptions } = options || {}
   const {
     include_docs,
     conflicts,
@@ -28,12 +31,12 @@ export default function useAllDocs<Content extends {}>(
     skip,
     descending,
     update_seq,
-  } = options || {}
+  } = allDocsOptions
   const { startkey, endkey, inclusive_end } =
-    (options as PouchDB.Core.AllDocsWithinRangeOptions) || {}
-  const { key } = (options as PouchDB.Core.AllDocsWithKeyOptions) || {}
+    (allDocsOptions as PouchDB.Core.AllDocsWithinRangeOptions) || {}
+  const { key } = (allDocsOptions as PouchDB.Core.AllDocsWithKeyOptions) || {}
   const keys: string[] | undefined = useDeepMemo(
-    (options as PouchDB.Core.AllDocsWithKeysOptions)?.keys
+    (allDocsOptions as PouchDB.Core.AllDocsWithKeysOptions)?.keys
   )
 
   const [state, dispatch, replace] = useStateMachine<
@@ -78,10 +81,57 @@ export default function useAllDocs<Content extends {}>(
         const result = await pouch.allDocs<Content>(opt)
 
         if (isMounted) {
-          dispatch({
-            type: 'loading_finished',
-            payload: result,
-          })
+          // Apply populate if configured and include_docs is true
+          if (populate && include_docs && result.rows) {
+            try {
+              const docsToPopulate = result.rows
+                .map(row => row.doc)
+                .filter(Boolean) as Content[]
+
+              if (docsToPopulate.length > 0) {
+                const populatedDocs = await populateDocuments(
+                  docsToPopulate,
+                  populate,
+                  { pouchdb: pouch, subscriptionManager },
+                  { maxDepth: options?.maxDepth }
+                )
+
+                // Update rows with populated documents
+                const populatedRows = result.rows.map((row, index) => ({
+                  ...row,
+                  doc: row.doc
+                    ? (populatedDocs[index] as PouchDB.Core.ExistingDocument<
+                        Content & PouchDB.Core.AllDocsMeta
+                      >) || row.doc
+                    : row.doc,
+                }))
+
+                dispatch({
+                  type: 'loading_finished',
+                  payload: {
+                    ...result,
+                    rows: populatedRows,
+                  },
+                })
+              } else {
+                dispatch({
+                  type: 'loading_finished',
+                  payload: result,
+                })
+              }
+            } catch (populateError) {
+              // Fallback to original result if populate fails
+              dispatch({
+                type: 'loading_finished',
+                payload: result,
+              })
+            }
+          } else {
+            dispatch({
+              type: 'loading_finished',
+              payload: result,
+            })
+          }
         }
       } catch (err) {
         if (isMounted) {
@@ -160,6 +210,8 @@ export default function useAllDocs<Content extends {}>(
     key,
     keys,
     update_seq,
+    populate,
+    options?.maxDepth,
   ])
 
   return state

@@ -5,27 +5,32 @@ import { useContext } from './context'
 import type SubscriptionManager from './subscription'
 import useStateMachine, { ResultType, Dispatch } from './state-machine'
 import { useDeepMemo, CommonOptions } from './utils'
+import { populateDocuments } from './usePopulate'
+import type { PopulateConfig, PopulateOptions } from './populate-types'
 
 /* typescript-eslint-disable @typescript-eslint/ban-types */
-type ViewResponseBase<Result extends {}> = PouchDB.Query.Response<Result> & {
-  /**
-   * Include an update_seq value indicating which sequence id of the underlying database the view
-   * reflects.
-   */
-  update_seq?: number | string
-}
+type ViewResponseBase<Result extends Record<string, unknown>> =
+  PouchDB.Query.Response<Result> & {
+    /**
+     * Include an update_seq value indicating which sequence id of the underlying database the view
+     * reflects.
+     */
+    update_seq?: number | string
+  }
 
-export type ViewResponse<T extends {}> = ResultType<ViewResponseBase<T>>
+export type ViewResponse<T extends Record<string, unknown>> = ResultType<
+  ViewResponseBase<T>
+>
 
 /**
  * Query a view and subscribe to its updates.
- * @param {string | function | object} fun The name of the view or a temporary view.
+ * @param {string|function|object} fun Name of a view in an existing design document (e.g. 'my_index') or a temporary view.
  * @param {object} [opts] PouchDB's query-options
  */
 export default function useView<
-  Content extends {},
-  Result extends {},
-  Model extends {} = Content
+  Content extends Record<string, unknown>,
+  Result extends Record<string, unknown>,
+  Model extends Record<string, unknown> = Content
 >(
   fun: string | PouchDB.Map<Model, Result> | PouchDB.Filter<Model, Result>,
   opts?: PouchDB.Query.Options<Model, Result> & {
@@ -42,6 +47,8 @@ export default function useView<
 
   const lastView = useRef<string | null>(null)
 
+  // Extract populate option
+  const { populate, ...viewOptions } = opts || {}
   const {
     reduce,
     include_docs,
@@ -56,12 +63,13 @@ export default function useView<
     group_level,
     update_seq,
     stale,
-  } = opts || {}
+  } = viewOptions
 
   const startkey = useDeepMemo(opts?.startkey)
   const endkey = useDeepMemo(opts?.endkey)
   const key = useDeepMemo(opts?.key)
   const keys = useDeepMemo(opts?.keys)
+  const populateMemo = useDeepMemo(populate)
 
   const [state, dispatch] = useStateMachine<ViewResponseBase<Result>>(() => ({
     rows: [],
@@ -94,14 +102,22 @@ export default function useView<
 
     if (typeof fun === 'string') {
       lastView.current = fun
-      return doDDocQuery(dispatch, pouch, subscriptionManager, fun, options)
+      return doDDocQuery(
+        dispatch,
+        pouch,
+        subscriptionManager,
+        fun,
+        options,
+        populateMemo
+      )
     } else {
       return doTemporaryQuery(
         dispatch,
         pouch,
         subscriptionManager,
         fun,
-        options
+        options,
+        populateMemo
       )
     }
   }, [
@@ -126,6 +142,7 @@ export default function useView<
     group_level,
     update_seq,
     stale,
+    populateMemo,
   ])
 
   return state
@@ -148,7 +165,8 @@ function doDDocQuery<
   pouch: PouchDB.Database<Record<string, unknown>>,
   subscriptionManager: SubscriptionManager,
   fn: string,
-  option?: PouchDB.Query.Options<Model, Result>
+  option?: PouchDB.Query.Options<Model, Result> & PopulateOptions,
+  populate?: PopulateConfig
 ): () => void {
   let isMounted = true
   let isFetching = false // A query is underway.
@@ -210,10 +228,55 @@ function doDDocQuery<
       const result = await pouch.query(fn, option)
       if (!isMounted) return
 
-      dispatch({
-        type: 'loading_finished',
-        payload: result,
-      })
+      // Apply populate if configured and include_docs is true
+      if (populate && option?.include_docs && result.rows) {
+        try {
+          const docsToPopulate = result.rows.map(row => row.doc).filter(Boolean)
+
+          if (docsToPopulate.length > 0) {
+            const populatedDocs = await populateDocuments(
+              docsToPopulate as Record<string, unknown>[],
+              populate,
+              { pouchdb: pouch, subscriptionManager },
+              { maxDepth: option?.maxDepth }
+            )
+
+            // Update rows with populated documents
+            const populatedRows = result.rows.map((row, index) => ({
+              ...row,
+              doc: row.doc
+                ? (populatedDocs[index] as PouchDB.Core.ExistingDocument<
+                    Result & PouchDB.Core.AllDocsMeta
+                  >) || row.doc
+                : row.doc,
+            }))
+
+            dispatch({
+              type: 'loading_finished',
+              payload: {
+                ...result,
+                rows: populatedRows,
+              },
+            })
+          } else {
+            dispatch({
+              type: 'loading_finished',
+              payload: result,
+            })
+          }
+        } catch (populateError) {
+          // Fallback to original result if populate fails
+          dispatch({
+            type: 'loading_finished',
+            payload: result,
+          })
+        }
+      } else {
+        dispatch({
+          type: 'loading_finished',
+          payload: result,
+        })
+      }
 
       const ids = new Set<PouchDB.Core.DocumentId>()
       for (const row of result.rows) {
@@ -293,7 +356,8 @@ function doTemporaryQuery<
   pouch: PouchDB.Database<Record<string, unknown>>,
   subscriptionManager: SubscriptionManager,
   fn: PouchDB.Map<Model, Result> | PouchDB.Filter<Model, Result>,
-  option?: PouchDB.Query.Options<Model, Result>
+  option?: PouchDB.Query.Options<Model, Result> & PopulateOptions,
+  populate?: PopulateConfig
 ): () => void {
   let isMounted = true
   let isFetching = false // A query is underway.
@@ -318,10 +382,55 @@ function doTemporaryQuery<
       const result = await pouch.query(fn, option)
       if (!isMounted) return
 
-      dispatch({
-        type: 'loading_finished',
-        payload: result,
-      })
+      // Apply populate if configured and include_docs is true
+      if (populate && option?.include_docs && result.rows) {
+        try {
+          const docsToPopulate = result.rows.map(row => row.doc).filter(Boolean)
+
+          if (docsToPopulate.length > 0) {
+            const populatedDocs = await populateDocuments(
+              docsToPopulate as Record<string, unknown>[],
+              populate,
+              { pouchdb: pouch, subscriptionManager },
+              { maxDepth: option?.maxDepth }
+            )
+
+            // Update rows with populated documents
+            const populatedRows = result.rows.map((row, index) => ({
+              ...row,
+              doc: row.doc
+                ? (populatedDocs[index] as PouchDB.Core.ExistingDocument<
+                    Result & PouchDB.Core.AllDocsMeta
+                  >) || row.doc
+                : row.doc,
+            }))
+
+            dispatch({
+              type: 'loading_finished',
+              payload: {
+                ...result,
+                rows: populatedRows,
+              },
+            })
+          } else {
+            dispatch({
+              type: 'loading_finished',
+              payload: result,
+            })
+          }
+        } catch (populateError) {
+          // Fallback to original result if populate fails
+          dispatch({
+            type: 'loading_finished',
+            payload: result,
+          })
+        }
+      } else {
+        dispatch({
+          type: 'loading_finished',
+          payload: result,
+        })
+      }
 
       const ids = new Set<PouchDB.Core.DocumentId | null>()
       for (const row of result.rows) {

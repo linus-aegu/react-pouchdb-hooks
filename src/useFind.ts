@@ -5,6 +5,7 @@ import { useContext } from './context'
 import type SubscriptionManager from './subscription'
 import useStateMachine, { ResultType } from './state-machine'
 import { useDeepMemo, CommonOptions } from './utils'
+import { populateDocuments } from './usePopulate'
 
 /**
  * Set which index to use for the query. Or create one and use it. It can be:
@@ -61,7 +62,7 @@ export interface FindHookOptions extends CommonOptions {
  * Query, and optionally create, a Mango index and subscribe to its updates.
  * @param {object} [opts] A combination of PouchDB's find options and create index options.
  */
-export default function useFind<Content extends {}>(
+export default function useFind<Content extends Record<string, unknown>>(
   options: FindHookOptions
 ): ResultType<PouchDB.Find.FindResponse<Content>> {
   const { pouchdb: pouch, subscriptionManager } = useContext(options.db)
@@ -75,12 +76,15 @@ export default function useFind<Content extends {}>(
     )
   }
 
-  const index = useDeepMemo(options.index)
-  const selector = useDeepMemo(options.selector)
-  const fields = useDeepMemo(options.fields)
-  const sort = useDeepMemo(options.sort)
-  const limit = options.limit
-  const skip = options.skip
+  // Extract populate option
+  const { populate, ...findOptions } = options
+  const index = useDeepMemo(findOptions.index)
+  const selector = useDeepMemo(findOptions.selector)
+  const fields = useDeepMemo(findOptions.fields)
+  const sort = useDeepMemo(findOptions.sort)
+  const populateMemo = useDeepMemo(populate)
+  const limit = findOptions.limit
+  const skip = findOptions.skip
 
   const [state, dispatch] = useStateMachine<PouchDB.Find.FindResponse<Content>>(
     () => ({
@@ -156,7 +160,30 @@ export default function useFind<Content extends {}>(
             }
           }
 
-          dispatch({ type: 'loading_finished', payload: result })
+          // Apply populate if configured
+          if (populateMemo && result.docs.length > 0) {
+            try {
+              const populatedDocs = await populateDocuments(
+                result.docs as Record<string, unknown>[],
+                populateMemo,
+                { pouchdb: pouch, subscriptionManager },
+                { maxDepth: options?.maxDepth }
+              )
+
+              dispatch({
+                type: 'loading_finished',
+                payload: {
+                  ...result,
+                  docs: populatedDocs as PouchDB.Core.ExistingDocument<Content>[],
+                },
+              })
+            } catch (populateError) {
+              // Fallback to original result if populate fails
+              dispatch({ type: 'loading_finished', payload: result })
+            }
+          } else {
+            dispatch({ type: 'loading_finished', payload: result })
+          }
         }
       } catch (error) {
         if (isActive) {
@@ -232,6 +259,8 @@ export default function useFind<Content extends {}>(
     sort,
     limit,
     skip,
+    populateMemo,
+    options?.maxDepth,
   ])
 
   // PERFORMANCE FIX: Memoize the result to prevent unnecessary re-renders

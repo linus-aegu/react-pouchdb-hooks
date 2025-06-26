@@ -22,9 +22,9 @@ afterEach(async () => {
 
 function createTestDocs() {
   return myPouch.bulkDocs([
-    { _id: 'doc1', type: 'test', name: 'Document 1' },
-    { _id: 'doc2', type: 'test', name: 'Document 2' },
-    { _id: 'doc3', type: 'test', name: 'Document 3' },
+    { _id: 'doc1', name: 'Document 1' },
+    { _id: 'doc2', name: 'Document 2' },
+    { _id: 'doc3', name: 'Document 3' },
   ])
 }
 
@@ -159,9 +159,9 @@ describe('useFind Performance', () => {
 
     // Add multiple documents rapidly
     await Promise.all([
-      myPouch.put({ _id: 'rapid1', type: 'test', name: 'Rapid 1' }),
-      myPouch.put({ _id: 'rapid2', type: 'test', name: 'Rapid 2' }),
-      myPouch.put({ _id: 'rapid3', type: 'test', name: 'Rapid 3' }),
+      myPouch.put({ _id: 'rapid1', name: 'Rapid 1' }),
+      myPouch.put({ _id: 'rapid2', name: 'Rapid 2' }),
+      myPouch.put({ _id: 'rapid3', name: 'Rapid 3' }),
     ])
 
     await waitForLoadingChange(result, false)

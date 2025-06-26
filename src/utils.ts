@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react'
 import isEqual from 'fast-deep-equal'
+import type { PopulateConfig } from './populate-types'
 
 /**
  * Memorize a value. Only invalidate if the value in it did change. Does a deep equal.
@@ -35,4 +36,20 @@ export interface CommonOptions {
    * Defaults to "_default".
    */
   db?: string
+
+  /**
+   * Optional populate configuration for automatically loading referenced documents
+   *
+   * @example
+   * populate: {
+   *   site_id: { as: 'site' },
+   *   author_id: { as: 'author' }
+   * }
+   */
+  populate?: PopulateConfig
+
+  /**
+   * Maximum recursion depth for nested populates (default: 3)
+   */
+  maxDepth?: number
 }

@@ -18,6 +18,17 @@ type Doc = PouchDB.Core.Document<{ type: string; test: number; value?: number }>
 type TempView = PouchDB.Map<Doc, {}>
 type TempViewDoc = PouchDB.Filter<Doc, {}>
 
+// Type for test documents in view functions
+interface TestDoc {
+  _id: string
+  _rev?: string
+  type: string
+  [key: string]: unknown
+}
+
+// Type for emit function in view tests
+type EmitFunction = (key: unknown, value?: unknown) => void
+
 let myPouch: PouchDB.Database
 
 // mock for the view emit function
@@ -3928,6 +3939,518 @@ describe('design documents', () => {
       ])
 
       await other.destroy()
+    })
+  })
+})
+
+describe('populate integration', () => {
+  test('should populate single field in design doc view with include_docs', async () => {
+    // Setup test data
+    await myPouch.bulkDocs([
+      {
+        _id: 'site_1',
+        type: 'site',
+        name: 'Tech Blog',
+        domain: 'tech.example.com',
+      },
+      {
+        _id: 'post_1',
+        type: 'post',
+        title: 'Hello World',
+        site_id: 'site_1',
+        published: true,
+      },
+    ])
+
+    const ddoc = {
+      _id: '_design/posts',
+      views: {
+        published: {
+          map: function (doc: TestDoc) {
+            if (doc.type === 'post' && doc.published) {
+              emit(doc._id, null)
+            }
+          }.toString(),
+        },
+      },
+    }
+
+    await myPouch.put(ddoc)
+
+    const { result } = renderHook(
+      () =>
+        useView('posts/published', {
+          include_docs: true,
+          populate: { site_id: { as: 'site' } },
+        }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    expect(result.current.rows).toHaveLength(1)
+
+    const row = result.current.rows[0]
+    expect(row.doc).toEqual({
+      _id: 'post_1',
+      _rev: expect.any(String),
+      type: 'post',
+      title: 'Hello World',
+      site_id: 'site_1',
+      published: true,
+      site: {
+        _id: 'site_1',
+        _rev: expect.any(String),
+        type: 'site',
+        name: 'Tech Blog',
+        domain: 'tech.example.com',
+      },
+    })
+  })
+
+  test('should populate multiple fields in design doc view', async () => {
+    // Setup test data
+    await myPouch.bulkDocs([
+      {
+        _id: 'site_1',
+        type: 'site',
+        name: 'Tech Blog',
+        domain: 'tech.example.com',
+      },
+      {
+        _id: 'user_1',
+        type: 'user',
+        name: 'John Doe',
+        email: 'john@example.com',
+      },
+      {
+        _id: 'post_1',
+        type: 'post',
+        title: 'Hello World',
+        site_id: 'site_1',
+        author_id: 'user_1',
+        published: true,
+      },
+    ])
+
+    const ddoc = {
+      _id: '_design/posts',
+      views: {
+        published: {
+          map: function (doc: TestDoc) {
+            if (doc.type === 'post' && doc.published) {
+              emit(doc._id, null)
+            }
+          }.toString(),
+        },
+      },
+    }
+
+    await myPouch.put(ddoc)
+
+    const { result } = renderHook(
+      () =>
+        useView('posts/published', {
+          include_docs: true,
+          populate: {
+            site_id: { as: 'site' },
+            author_id: { as: 'author' },
+          },
+        }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    expect(result.current.rows).toHaveLength(1)
+
+    const row = result.current.rows[0]
+    expect(row.doc).toEqual({
+      _id: 'post_1',
+      _rev: expect.any(String),
+      type: 'post',
+      title: 'Hello World',
+      site_id: 'site_1',
+      author_id: 'user_1',
+      published: true,
+      site: {
+        _id: 'site_1',
+        _rev: expect.any(String),
+        type: 'site',
+        name: 'Tech Blog',
+        domain: 'tech.example.com',
+      },
+      author: {
+        _id: 'user_1',
+        _rev: expect.any(String),
+        type: 'user',
+        name: 'John Doe',
+        email: 'john@example.com',
+      },
+    })
+  })
+
+  test('should handle missing references gracefully in design doc view', async () => {
+    // Setup test data without referenced documents
+    await myPouch.bulkDocs([
+      {
+        _id: 'post_1',
+        type: 'post',
+        title: 'Hello World',
+        site_id: 'missing_site',
+        published: true,
+      },
+    ])
+
+    const ddoc = {
+      _id: '_design/posts',
+      views: {
+        published: {
+          map: function (doc: TestDoc) {
+            if (doc.type === 'post' && doc.published) {
+              emit(doc._id, null)
+            }
+          }.toString(),
+        },
+      },
+    }
+
+    await myPouch.put(ddoc)
+
+    const { result } = renderHook(
+      () =>
+        useView('posts/published', {
+          include_docs: true,
+          populate: { site_id: { as: 'site' } },
+        }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    expect(result.current.rows).toHaveLength(1)
+
+    const row = result.current.rows[0]
+    expect(row.doc).toEqual({
+      _id: 'post_1',
+      _rev: expect.any(String),
+      type: 'post',
+      title: 'Hello World',
+      site_id: 'missing_site',
+      published: true,
+      // No 'site' field should be added for missing reference
+    })
+  })
+
+  test('should work without include_docs (no populate)', async () => {
+    // Setup test data
+    await myPouch.bulkDocs([
+      {
+        _id: 'site_1',
+        type: 'site',
+        name: 'Tech Blog',
+        domain: 'tech.example.com',
+      },
+      {
+        _id: 'post_1',
+        type: 'post',
+        title: 'Hello World',
+        site_id: 'site_1',
+        published: true,
+      },
+    ])
+
+    const ddoc = {
+      _id: '_design/posts',
+      views: {
+        published: {
+          map: function (doc: TestDoc) {
+            if (doc.type === 'post' && doc.published) {
+              emit(doc._id, null)
+            }
+          }.toString(),
+        },
+      },
+    }
+
+    await myPouch.put(ddoc)
+
+    const { result } = renderHook(
+      () =>
+        useView('posts/published', {
+          populate: { site_id: { as: 'site' } }, // Should be ignored without include_docs
+        }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    expect(result.current.rows).toHaveLength(1)
+
+    const row = result.current.rows[0]
+    expect(row.doc).toBeUndefined() // No doc included
+    expect(row.id).toBe('post_1')
+  })
+
+  test('should populate single field in temporary view with include_docs', async () => {
+    // Setup test data
+    await myPouch.bulkDocs([
+      {
+        _id: 'site_1',
+        type: 'site',
+        name: 'Tech Blog',
+        domain: 'tech.example.com',
+      },
+      {
+        _id: 'post_1',
+        type: 'post',
+        title: 'Hello World',
+        site_id: 'site_1',
+        published: true,
+      },
+    ])
+
+    const tempView = (doc: TestDoc, emit: EmitFunction) => {
+      if (doc.type === 'post' && doc.published) {
+        emit(doc._id, null)
+      }
+    }
+
+    const { result } = renderHook(
+      () =>
+        useView(tempView, {
+          include_docs: true,
+          populate: { site_id: { as: 'site' } },
+        }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    expect(result.current.rows).toHaveLength(1)
+
+    const row = result.current.rows[0]
+    expect(row.doc).toEqual({
+      _id: 'post_1',
+      _rev: expect.any(String),
+      type: 'post',
+      title: 'Hello World',
+      site_id: 'site_1',
+      published: true,
+      site: {
+        _id: 'site_1',
+        _rev: expect.any(String),
+        type: 'site',
+        name: 'Tech Blog',
+        domain: 'tech.example.com',
+      },
+    })
+  })
+
+  test('should populate multiple fields in temporary view', async () => {
+    // Setup test data
+    await myPouch.bulkDocs([
+      {
+        _id: 'site_1',
+        type: 'site',
+        name: 'Tech Blog',
+        domain: 'tech.example.com',
+      },
+      {
+        _id: 'user_1',
+        type: 'user',
+        name: 'John Doe',
+        email: 'john@example.com',
+      },
+      {
+        _id: 'post_1',
+        type: 'post',
+        title: 'Hello World',
+        site_id: 'site_1',
+        author_id: 'user_1',
+        published: true,
+      },
+    ])
+
+    const tempView = (doc: TestDoc, emit: EmitFunction) => {
+      if (doc.type === 'post' && doc.published) {
+        emit(doc._id, null)
+      }
+    }
+
+    const { result } = renderHook(
+      () =>
+        useView(tempView, {
+          include_docs: true,
+          populate: {
+            site_id: { as: 'site' },
+            author_id: { as: 'author' },
+          },
+        }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    expect(result.current.rows).toHaveLength(1)
+
+    const row = result.current.rows[0]
+    expect(row.doc).toEqual({
+      _id: 'post_1',
+      _rev: expect.any(String),
+      type: 'post',
+      title: 'Hello World',
+      site_id: 'site_1',
+      author_id: 'user_1',
+      published: true,
+      site: {
+        _id: 'site_1',
+        _rev: expect.any(String),
+        type: 'site',
+        name: 'Tech Blog',
+        domain: 'tech.example.com',
+      },
+      author: {
+        _id: 'user_1',
+        _rev: expect.any(String),
+        type: 'user',
+        name: 'John Doe',
+        email: 'john@example.com',
+      },
+    })
+  })
+
+  test('should handle document changes with populate', async () => {
+    // Setup test data
+    await myPouch.bulkDocs([
+      {
+        _id: 'site_1',
+        type: 'site',
+        name: 'Tech Blog',
+        domain: 'tech.example.com',
+      },
+      {
+        _id: 'post_1',
+        type: 'post',
+        title: 'Hello World',
+        site_id: 'site_1',
+        published: true,
+      },
+    ])
+
+    const ddoc = {
+      _id: '_design/posts',
+      views: {
+        published: {
+          map: function (doc: TestDoc) {
+            if (doc.type === 'post' && doc.published) {
+              emit(doc._id, null)
+            }
+          }.toString(),
+        },
+      },
+    }
+
+    await myPouch.put(ddoc)
+
+    const { result } = renderHook(
+      () =>
+        useView('posts/published', {
+          include_docs: true,
+          populate: { site_id: { as: 'site' } },
+        }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.rows).toHaveLength(1)
+    expect(result.current.rows[0].doc?.site?.name).toBe('Tech Blog')
+
+    // Update the post document (which will trigger view re-query and re-populate)
+    const postDoc = await myPouch.get('post_1')
+    act(() => {
+      myPouch.put({
+        ...postDoc,
+        title: 'Updated Hello World',
+      })
+    })
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.rows).toHaveLength(1)
+    expect(result.current.rows[0].doc?.title).toBe('Updated Hello World')
+    expect(result.current.rows[0].doc?.site?.name).toBe('Tech Blog') // Site should still be populated
+  })
+
+  test('should populate any document regardless of type', async () => {
+    // Setup test data with different document types
+    await myPouch.bulkDocs([
+      {
+        _id: 'ref_1',
+        type: 'different_type',
+        name: 'Referenced Doc',
+        value: 42,
+      },
+      {
+        _id: 'post_1',
+        type: 'post',
+        title: 'Hello World',
+        ref_id: 'ref_1',
+        published: true,
+      },
+    ])
+
+    const ddoc = {
+      _id: '_design/posts',
+      views: {
+        published: {
+          map: function (doc: TestDoc) {
+            if (doc.type === 'post' && doc.published) {
+              emit(doc._id, null)
+            }
+          }.toString(),
+        },
+      },
+    }
+
+    await myPouch.put(ddoc)
+
+    const { result } = renderHook(
+      () =>
+        useView('posts/published', {
+          include_docs: true,
+          populate: { ref_id: { as: 'reference' } },
+        }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    expect(result.current.rows).toHaveLength(1)
+
+    const row = result.current.rows[0]
+    expect(row.doc).toEqual({
+      _id: 'post_1',
+      _rev: expect.any(String),
+      type: 'post',
+      title: 'Hello World',
+      ref_id: 'ref_1',
+      published: true,
+      reference: {
+        _id: 'ref_1',
+        _rev: expect.any(String),
+        type: 'different_type',
+        name: 'Referenced Doc',
+        value: 42,
+      },
     })
   })
 })

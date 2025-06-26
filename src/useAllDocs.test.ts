@@ -11,6 +11,7 @@ import {
   sleep,
 } from './test-utils'
 import useAllDocs from './useAllDocs'
+import type { PopulateConfig } from './populate-types'
 
 PouchDB.plugin(memory)
 PouchDB.plugin(mapReduce)
@@ -915,5 +916,355 @@ describe('options', () => {
     ])
 
     await other.destroy()
+  })
+})
+
+describe('populate functionality', () => {
+  interface TestPost {
+    _id: string
+    _rev: string
+    type: 'post'
+    title: string
+    site_id: string
+    author_id: string
+  }
+
+  interface TestSite {
+    _id: string
+    _rev: string
+    type: 'site'
+    name: string
+    domain: string
+  }
+
+  interface TestUser {
+    _id: string
+    _rev: string
+    type: 'user'
+    name: string
+    email: string
+  }
+
+  beforeEach(async () => {
+    // Create reference documents
+    await myPouch.put({
+      _id: 'site_1',
+      type: 'site',
+      name: 'Tech Blog',
+      domain: 'techblog.com',
+    } as TestSite)
+
+    await myPouch.put({
+      _id: 'site_2',
+      type: 'site',
+      name: 'News Site',
+      domain: 'news.com',
+    } as TestSite)
+
+    await myPouch.put({
+      _id: 'user_1',
+      type: 'user',
+      name: 'John Doe',
+      email: 'john@example.com',
+    } as TestUser)
+
+    await myPouch.put({
+      _id: 'user_2',
+      type: 'user',
+      name: 'Jane Smith',
+      email: 'jane@example.com',
+    } as TestUser)
+
+    // Create test posts
+    await myPouch.put({
+      _id: 'post_1',
+      type: 'post',
+      title: 'First Post',
+      site_id: 'site_1',
+      author_id: 'user_1',
+    } as TestPost)
+
+    await myPouch.put({
+      _id: 'post_2',
+      type: 'post',
+      title: 'Second Post',
+      site_id: 'site_2',
+      author_id: 'user_2',
+    } as TestPost)
+  })
+
+  test('should populate documents with include_docs', async () => {
+    const populateConfig: PopulateConfig = {
+      site_id: { as: 'site' },
+      author_id: { as: 'author' },
+    }
+
+    const { result } = renderHook(
+      () =>
+        useAllDocs<TestPost>({
+          include_docs: true,
+          startkey: 'post_',
+          endkey: 'post_\ufff0',
+          populate: populateConfig,
+        }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    expect(result.current.rows).toHaveLength(2)
+
+    // Check first post
+    const firstRow = result.current.rows[0]
+    expect(firstRow.doc).toBeDefined()
+    const firstDoc = firstRow.doc as TestPost & {
+      site: TestSite
+      author: TestUser
+    }
+    expect(firstDoc._id).toBe('post_1')
+    expect(firstDoc.site).toBeDefined()
+    expect(firstDoc.site.name).toBe('Tech Blog')
+    expect(firstDoc.author).toBeDefined()
+    expect(firstDoc.author.name).toBe('John Doe')
+
+    // Check second post
+    const secondRow = result.current.rows[1]
+    expect(secondRow.doc).toBeDefined()
+    const secondDoc = secondRow.doc as TestPost & {
+      site: TestSite
+      author: TestUser
+    }
+    expect(secondDoc._id).toBe('post_2')
+    expect(secondDoc.site).toBeDefined()
+    expect(secondDoc.site.name).toBe('News Site')
+    expect(secondDoc.author).toBeDefined()
+    expect(secondDoc.author.name).toBe('Jane Smith')
+  })
+
+  test('should work without populate config', async () => {
+    const { result } = renderHook(
+      () =>
+        useAllDocs<TestPost>({
+          include_docs: true,
+          startkey: 'post_',
+          endkey: 'post_\ufff0',
+        }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    expect(result.current.rows).toHaveLength(2)
+
+    // Check that documents are not populated
+    const firstDoc = result.current.rows[0].doc as TestPost
+    expect(firstDoc._id).toBe('post_1')
+    expect(firstDoc.site).toBeUndefined()
+    expect(firstDoc.author).toBeUndefined()
+  })
+
+  test('should not populate without include_docs', async () => {
+    const populateConfig: PopulateConfig = {
+      site_id: { as: 'site' },
+    }
+
+    const { result } = renderHook(
+      () =>
+        useAllDocs<TestPost>({
+          startkey: 'post_',
+          endkey: 'post_\ufff0',
+          populate: populateConfig,
+        }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    expect(result.current.rows).toHaveLength(2)
+
+    // Without include_docs, rows should not have doc property
+    expect(result.current.rows[0].doc).toBeUndefined()
+    expect(result.current.rows[1].doc).toBeUndefined()
+  })
+
+  test('should handle missing references gracefully', async () => {
+    // Create a post with a missing reference
+    await myPouch.put({
+      _id: 'post_3',
+      type: 'post',
+      title: 'Third Post',
+      site_id: 'nonexistent_site',
+      author_id: 'user_1',
+    } as TestPost)
+
+    const populateConfig: PopulateConfig = {
+      site_id: { as: 'site' },
+      author_id: { as: 'author' },
+    }
+
+    const { result } = renderHook(
+      () =>
+        useAllDocs<TestPost>({
+          include_docs: true,
+          startkey: 'post_3',
+          endkey: 'post_3',
+          populate: populateConfig,
+        }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    expect(result.current.rows).toHaveLength(1)
+
+    const doc = result.current.rows[0].doc as TestPost & {
+      site?: TestSite
+      author: TestUser
+    }
+    expect(doc._id).toBe('post_3')
+
+    // Missing reference should not be populated
+    expect(doc.site).toBeUndefined()
+
+    // Valid reference should be populated
+    expect(doc.author).toBeDefined()
+    expect(doc.author.name).toBe('John Doe')
+  })
+
+  test('should populate with specific keys', async () => {
+    const populateConfig: PopulateConfig = {
+      site_id: { as: 'site' },
+    }
+
+    const { result } = renderHook(
+      () =>
+        useAllDocs<TestPost>({
+          include_docs: true,
+          keys: ['post_1', 'post_2'],
+          populate: populateConfig,
+        }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    expect(result.current.rows).toHaveLength(2)
+
+    // Both documents should be populated
+    const firstDoc = result.current.rows[0].doc as TestPost & { site: TestSite }
+    const secondDoc = result.current.rows[1].doc as TestPost & {
+      site: TestSite
+    }
+
+    expect(firstDoc.site).toBeDefined()
+    expect(firstDoc.site.name).toBe('Tech Blog')
+
+    expect(secondDoc.site).toBeDefined()
+    expect(secondDoc.site.name).toBe('News Site')
+  })
+
+  test('should populate data correctly with different reference documents', async () => {
+    // Create a third post that references site_2 from the start
+    await myPouch.put({
+      _id: 'post_3',
+      type: 'post',
+      title: 'Third Post',
+      site_id: 'site_2',
+      author_id: 'user_2',
+    } as TestPost)
+
+    const populateConfig: PopulateConfig = {
+      site_id: { as: 'site' },
+      author_id: { as: 'author' },
+    }
+
+    const { result } = renderHook(
+      () =>
+        useAllDocs<TestPost>({
+          include_docs: true,
+          startkey: 'post_3',
+          endkey: 'post_3',
+          populate: populateConfig,
+        }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    expect(result.current.rows).toHaveLength(1)
+
+    const doc = result.current.rows[0].doc as TestPost & {
+      site: TestSite
+      author: TestUser
+    }
+    expect(doc._id).toBe('post_3')
+    expect(doc.title).toBe('Third Post')
+
+    // Verify population worked correctly
+    expect(doc.site).toBeDefined()
+    expect(doc.site.name).toBe('News Site')
+    expect(doc.site.domain).toBe('news.com')
+
+    expect(doc.author).toBeDefined()
+    expect(doc.author.name).toBe('Jane Smith')
+    expect(doc.author.email).toBe('jane@example.com')
+  })
+
+  test('should populate any referenced document regardless of type', async () => {
+    // Create a document with different type but valid structure
+    await myPouch.put({
+      _id: 'site_different_type',
+      type: 'category',
+      name: 'Category Site',
+      domain: 'category.com',
+    })
+
+    // Create post referencing this document
+    await myPouch.put({
+      _id: 'post_4',
+      type: 'post',
+      title: 'Fourth Post',
+      site_id: 'site_different_type',
+      author_id: 'user_1',
+    } as TestPost)
+
+    const populateConfig: PopulateConfig = {
+      site_id: { as: 'site' },
+      author_id: { as: 'author' },
+    }
+
+    const { result } = renderHook(
+      () =>
+        useAllDocs<TestPost>({
+          include_docs: true,
+          startkey: 'post_4',
+          endkey: 'post_4',
+          populate: populateConfig,
+        }),
+      { pouchdb: myPouch }
+    )
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.state).toBe('done')
+    const doc = result.current.rows[0].doc as TestPost & {
+      site: unknown
+      author: TestUser
+    }
+
+    // Any document should be populated (no type filtering)
+    expect(doc.site).toBeDefined()
+    expect(doc.site.name).toBe('Category Site')
+    expect(doc.site.type).toBe('category')
+
+    // Author should still be populated
+    expect(doc.author).toBeDefined()
+    expect(doc.author.name).toBe('John Doe')
   })
 })
