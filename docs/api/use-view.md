@@ -71,15 +71,47 @@ descriptions are copied from the PouchDB API page.
      Defaults to the full length of the array.
    - `options.stale?: 'ok' | 'update_after'` - Only applies to saved views. Can be one of:
      - unspecified (default): Returns the latest results, waiting for the view to build if necessary.
-     - `'ok' | 'update_after'`: Returns results immediately, even if they’re out-of-date.
+     - `'ok' | 'update_after'`: Returns results immediately, even if they're out-of-date.
        But starts a new request after the first request did resolved.
    - `options.update_seq?: boolean` - Include an `update_seq` value indicating which sequence id of the underlying
      database the view reflects.
    - `options.db?: string` - Selects the database to be used. The database is selected by it's name/key.
      The special key `"_default"` selects the _default database_. Defaults to `"_default"`.
+   - `options.populate?: PopulateConfig` - Configuration for populating referenced documents. See [Populate Feature](#populate-feature) below.
+   - `options.maxDepth?: number` - Maximum recursion depth for nested populate operations. Default is `3`.
 
-> `startkey`, `endkey`, `key` and `keys` are check for equality with a deep equal algorithm.
+> `startkey`, `endkey`, `key`, `keys`, and `populate` are checked for equality with a deep equal algorithm.
 > And only if they differentiate by _value_ will they cause a new query be made.
+
+## Populate Feature
+
+The populate feature allows you to automatically fetch and include referenced documents in your view results. This is useful for relational-style data where documents reference other documents by ID.
+
+### PopulateConfig
+
+The `populate` option accepts a configuration object where:
+
+- **Key**: The field name in your document that contains a reference ID
+- **Value**: Configuration for how to populate that field
+
+```typescript
+interface PopulateFieldConfig {
+  as: string // Field name where populated document will be stored
+  db?: string // Database name if different from current (optional)
+  populate?: PopulateConfig // Nested populate configuration (recursive)
+}
+
+interface PopulateConfig {
+  [fieldName: string]: PopulateFieldConfig
+}
+```
+
+### Performance Considerations
+
+- Populate operations are optimized with bulk fetching using `allDocs()`
+- Results are cached during a single populate operation
+- Circular reference detection prevents infinite loops
+- Maximum recursion depth prevents performance issues
 
 ## Result
 
@@ -94,6 +126,7 @@ descriptions are copied from the PouchDB API page.
     - Else: Result of the reduce function.
   - `doc?: PouchDB.Core.Document` - If `options.include_docs` was `true`, this field will contain the document. And
     if `attachments` is also `true`, the document will contain the attachment data in the `"_attachments"` field.
+    **When using populate, documents will include the populated fields as specified in the populate configuration.**
 - `offset?: number` - The `skip` provided.
 - `total_rows?: number` - The total number of non-deleted documents in the database.
 - `update_seq?: number | string` - If `update_seq` is `true`, this will contain the sequence id of the underlying
@@ -333,6 +366,119 @@ export function ListAllOfTag({ tag, isLocalReady }) {
         <li key={`${row.key} ${row.id}`}>{row.value}</li>
       ))}
     </ul>
+  )
+}
+```
+
+### Using Populate with Views
+
+```jsx
+import React from 'react'
+import { useView } from 'use-pouchdb'
+
+export function ProductsByCategory() {
+  const { rows, loading, error } = useView('catalog/by_category', {
+    include_docs: true,
+    populate: {
+      manufacturerId: {
+        as: 'manufacturer',
+        populate: {
+          countryId: {
+            as: 'country',
+          },
+        },
+      },
+      categoryId: {
+        as: 'category',
+      },
+    },
+    maxDepth: 2,
+  })
+
+  if (error) {
+    return <div>Error: {error.message}</div>
+  }
+
+  if (loading && rows.length === 0) {
+    return <div>Loading products...</div>
+  }
+
+  return (
+    <div>
+      <h1>Products by Category</h1>
+      {rows.map(row => (
+        <div key={row.id}>
+          <h3>{row.doc.name}</h3>
+          <p>Category: {row.doc.category?.name}</p>
+          <p>Manufacturer: {row.doc.manufacturer?.name}</p>
+          <p>Country: {row.doc.manufacturer?.country?.name}</p>
+          <p>Price: ${row.doc.price}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+```
+
+### Populate with View Statistics
+
+You can combine populate with view statistics for rich reporting:
+
+```jsx
+import React from 'react'
+import { useView } from 'use-pouchdb'
+
+export function SalesByRegion() {
+  const { rows, loading, error } = useView('sales/by_region', {
+    group: true,
+    include_docs: false, // We don't need docs for statistics
+  })
+
+  // Get detailed view with documents for drill-down
+  const { rows: detailRows } = useView('sales/by_region', {
+    reduce: false,
+    include_docs: true,
+    populate: {
+      customerId: {
+        as: 'customer',
+      },
+      productId: {
+        as: 'product',
+        populate: {
+          categoryId: {
+            as: 'category',
+          },
+        },
+      },
+    },
+  })
+
+  if (error) {
+    return <div>Error: {error.message}</div>
+  }
+
+  return (
+    <div>
+      <h1>Sales Statistics</h1>
+
+      <h2>Summary by Region</h2>
+      {rows.map(row => (
+        <div key={row.key}>
+          <strong>{row.key}</strong>: {row.value} sales
+        </div>
+      ))}
+
+      <h2>Detailed Sales</h2>
+      {detailRows.map(row => (
+        <div key={row.id}>
+          <p>Sale ID: {row.id}</p>
+          <p>Customer: {row.doc.customer?.name}</p>
+          <p>Product: {row.doc.product?.name}</p>
+          <p>Category: {row.doc.product?.category?.name}</p>
+          <p>Amount: ${row.doc.amount}</p>
+        </div>
+      ))}
+    </div>
   )
 }
 ```

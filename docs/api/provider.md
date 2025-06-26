@@ -40,6 +40,12 @@ provide to the child components.
 `name` (String optional) Name to use when selecting that database with a hook's `db` option.
 Defaults to the `name` field of the database.
 
+`subscriptionOptions` (Object optional) Configuration options for the subscription manager.
+
+- `subscriptionOptions.enableBatching?: boolean` - Enable batching of rapid document changes to improve performance. Default is `true`.
+- `subscriptionOptions.batchDelay?: number` - Delay in milliseconds for batching document changes. Default is `16`.
+- `subscriptionOptions.leadingEdge?: boolean` - Process the first change immediately, then batch subsequent changes. Default is `true`.
+
 `children` (ReactElement) The root of your component hierarchy, which should have access to this database.
 
 ### Props multi databases
@@ -49,7 +55,23 @@ The key used, is the key by which a database can be selected at the `db` options
 
 `default` (String) Key of the default database. This can also be the key of a parent database. _Required_.
 
+`subscriptionOptions` (Object optional) Configuration options for the subscription manager.
+
+- `subscriptionOptions.enableBatching?: boolean` - Enable batching of rapid document changes to improve performance. Default is `true`.
+- `subscriptionOptions.batchDelay?: number` - Delay in milliseconds for batching document changes. Default is `16`.
+- `subscriptionOptions.leadingEdge?: boolean` - Process the first change immediately, then batch subsequent changes. Default is `true`.
+
 `children` (ReactElement) The root of your component hierarchy, which should have access to this database.
+
+## Performance Optimization
+
+The Provider includes built-in performance optimizations:
+
+- **Subscription Batching**: Rapid document changes are batched together to prevent render thrashing during high-frequency updates
+- **Optimized Change Feeds**: Uses `include_docs` to eliminate separate database calls
+- **Memoization**: Intelligent memoization prevents unnecessary re-renders
+
+These optimizations maintain under 4 renders for initial loads and under 2 renders for updates while being backward compatible.
 
 ## Example Usage
 
@@ -244,3 +266,56 @@ export function UserMenu() {
 Hooks in `<Menu />` access the _remote_ database by default, or if you pass `undefined`, `null`,
 `"remote"` or `"_default"` to the `db` option. You can still access the _local_ database if you
 pass `"local"` into the `db` option.
+
+### Performance Configuration
+
+You can configure the subscription batching behavior:
+
+```jsx
+import React from 'react'
+import ReactDOM from 'react-dom'
+import PouchDB from 'pouchdb-browser'
+import { Provider } from 'use-pouchdb'
+
+import { App } from './App'
+
+const db = new PouchDB('local')
+
+ReactDOM.render(
+  <Provider
+    pouchdb={db}
+    subscriptionOptions={{
+      enableBatching: true,
+      batchDelay: 10, // Custom 10ms delay for very responsive apps
+      leadingEdge: true, // Process first change immediately (default: true)
+    }}
+  >
+    <App />
+  </Provider>,
+  document.getElementById('root')
+)
+```
+
+### Leading Edge Batching
+
+The `leadingEdge` option provides the best user experience by processing the first change immediately while still batching subsequent rapid changes:
+
+```jsx
+// Immediate first response + batching (default behavior)
+<Provider
+  pouchdb={db}
+  subscriptionOptions={{
+    leadingEdge: true, // First change processes immediately
+    batchDelay: 16,    // Subsequent changes batched for 16ms
+  }}
+>
+
+// Traditional batching (all changes delayed)
+<Provider
+  pouchdb={db}
+  subscriptionOptions={{
+    leadingEdge: false, // All changes wait for batch delay
+    batchDelay: 16,
+  }}
+>
+```

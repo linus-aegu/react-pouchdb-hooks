@@ -48,9 +48,41 @@ page.
      database the view reflects.
    - `options.db?: string` - Selects the database to be used. The database is selected by it's name/key.
      The special key `"_default"` selects the _default database_. Defaults to `"_default"`.
+   - `options.populate?: PopulateConfig` - Configuration for populating referenced documents. See [Populate Feature](#populate-feature) below.
+   - `options.maxDepth?: number` - Maximum recursion depth for nested populate operations. Default is `3`.
 
-> `keys` is check for equality with a deep equal algorithm.
-> And only if it differentiate by _value_ will it cause a new query be made.
+> `keys` and `populate` are checked for equality with a deep equal algorithm.
+> And only if they differentiate by _value_ will they cause a new query be made.
+
+## Populate Feature
+
+The populate feature allows you to automatically fetch and include referenced documents in your query results. This is useful for relational-style data where documents reference other documents by ID.
+
+### PopulateConfig
+
+The `populate` option accepts a configuration object where:
+
+- **Key**: The field name in your document that contains a reference ID
+- **Value**: Configuration for how to populate that field
+
+```typescript
+interface PopulateFieldConfig {
+  as: string // Field name where populated document will be stored
+  db?: string // Database name if different from current (optional)
+  populate?: PopulateConfig // Nested populate configuration (recursive)
+}
+
+interface PopulateConfig {
+  [fieldName: string]: PopulateFieldConfig
+}
+```
+
+### Performance Considerations
+
+- Populate operations are optimized with bulk fetching using `allDocs()`
+- Results are cached during a single populate operation
+- Circular reference detection prevents infinite loops
+- Maximum recursion depth prevents performance issues
 
 ## Result
 
@@ -64,6 +96,7 @@ page.
     - `value.rev: string` - `_rev` of the document.
   - `doc?: PouchDB.Core.Document` - If `options.include_docs` was `true`, this field will contain the document. And
     if `attachments` is also `true`, the document will contain the attachment data in the `"_attachments"` field.
+    **When using populate, documents will include the populated fields as specified in the populate configuration.**
 - `offset: number` - The `skip` provided.
 - `total_rows: number` - The total number of non-deleted documents in the database.
 - `update_seq?: number | string` - If `update_seq` is `true`, this will contain the sequence id of the underlying
@@ -255,6 +288,112 @@ export function Comments({ id, isLocalReady }) {
           </section>
         ))}
       </div>
+    </div>
+  )
+}
+```
+
+### Using Populate with Multiple Documents
+
+```jsx
+import React from 'react'
+import { useAllDocs } from 'use-pouchdb'
+
+export function UserList() {
+  const { rows, loading, error } = useAllDocs({
+    startkey: 'user_',
+    endkey: 'user_\ufff0',
+    include_docs: true,
+    populate: {
+      companyId: {
+        as: 'company',
+      },
+      departmentId: {
+        as: 'department',
+        db: 'organization',
+      },
+    },
+  })
+
+  if (error) {
+    return <div>Error: {error.message}</div>
+  }
+
+  if (loading && rows.length === 0) {
+    return <div>Loading users...</div>
+  }
+
+  return (
+    <div>
+      <h1>Users</h1>
+      {rows.map(row => (
+        <div key={row.id}>
+          <h3>{row.doc.name}</h3>
+          <p>Company: {row.doc.company?.name}</p>
+          <p>Department: {row.doc.department?.name}</p>
+          <p>Email: {row.doc.email}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+```
+
+### Populate with Specific Keys
+
+```jsx
+import React from 'react'
+import { useAllDocs } from 'use-pouchdb'
+
+export function OrderDetails({ orderIds }) {
+  const { rows, loading, error } = useAllDocs({
+    keys: orderIds,
+    include_docs: true,
+    populate: {
+      customerId: {
+        as: 'customer',
+        db: 'users',
+      },
+      productIds: {
+        as: 'products',
+        db: 'catalog',
+        // Nested populate for product categories
+        populate: {
+          categoryId: {
+            as: 'category',
+          },
+        },
+      },
+    },
+    maxDepth: 2,
+  })
+
+  if (error) {
+    return <div>Error: {error.message}</div>
+  }
+
+  if (loading && rows.length === 0) {
+    return <div>Loading orders...</div>
+  }
+
+  return (
+    <div>
+      <h1>Order Details</h1>
+      {rows.map(row => (
+        <div key={row.id}>
+          <h3>Order #{row.doc.orderNumber}</h3>
+          <p>Customer: {row.doc.customer?.name}</p>
+          <div>
+            <h4>Products:</h4>
+            {row.doc.products?.map(product => (
+              <div key={product._id}>
+                <span>{product.name}</span>
+                <span> - {product.category?.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

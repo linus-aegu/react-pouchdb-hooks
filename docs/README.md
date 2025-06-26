@@ -10,6 +10,8 @@
   - [Add Todos](./basics/add-todo.md)
   - [List all Todos](./basics/list-all.md)
   - [Update docs](./basics/update)
+  - [Working with References (Populate)](./basics/populate.md)
+  - [Performance Optimization](./basics/performance.md)
   - [Sync account](./basics/sync)
   - [Testing](./basics/testing)
   - [More](./basics/more)
@@ -20,3 +22,4 @@
   - [useAllDocs](./api/use-all-docs.md)
   - [useFind](./api/use-find.md)
   - [useView](./api/use-view.md)
+  - [usePopulate](./api/use-populate.md)

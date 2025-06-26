@@ -29,15 +29,47 @@ of `options.open_revs` not being supported. Options descriptions are copied from
    - `options.latest?: boolean` - Forces retrieving latest "leaf" revision, no matter what rev was requested.
    - `options.db?: string` - Selects the database to be used. The database is selected by it's name/key.
      The special key `"_default"` selects the _default database_. Defaults to `"_default"`.
+   - `options.populate?: PopulateConfig` - Configuration for populating referenced documents. See [Populate Feature](#populate-feature) below.
+   - `options.maxDepth?: number` - Maximum recursion depth for nested populate operations. Default is `3`.
 3. `initialValue?: Object | function` - Optional initial value of `doc` result. Has the same behavior as
    `useState`'s initialValue. If used then the `options` object must be set.
+
+## Populate Feature
+
+The populate feature allows you to automatically fetch and include referenced documents in your document result. This is useful for relational-style data where documents reference other documents by ID.
+
+### PopulateConfig
+
+The `populate` option accepts a configuration object where:
+
+- **Key**: The field name in your document that contains a reference ID
+- **Value**: Configuration for how to populate that field
+
+```typescript
+interface PopulateFieldConfig {
+  as: string // Field name where populated document will be stored
+  db?: string // Database name if different from current (optional)
+  populate?: PopulateConfig // Nested populate configuration (recursive)
+}
+
+interface PopulateConfig {
+  [fieldName: string]: PopulateFieldConfig
+}
+```
+
+### Performance Considerations
+
+- Populate operations are optimized with bulk fetching using `allDocs()`
+- Results are cached during a single populate operation
+- Circular reference detection prevents infinite loops
+- Maximum recursion depth prevents performance issues
 
 ## Result
 
 `useDoc` results an object with those fields:
 
 - `doc: PouchDB.Core.Document | null` - The requested document. If there is an error, or its still loading the doc
-  is `null` or the `initialValue`.
+  is `null` or the `initialValue`. **When using populate, the document will include the populated fields as specified in the populate configuration.**
 - `state: 'loading' | 'done' | 'error'` - Current state of the hook.
   - `loading` - It is loading the document. Or it is loading the updated version of it.
   - `done` - The document was loaded, and no update is being loaded.
@@ -195,6 +227,110 @@ export function PostViewer({ id, isLocalReady }) {
       </hgroup>
       <ReactMarkdown source={doc.text} />
     </article>
+  )
+}
+```
+
+### Using Populate for Referenced Documents
+
+```jsx
+import React from 'react'
+import { useDoc } from 'use-pouchdb'
+
+export function UserProfile({ userId }) {
+  const {
+    doc: user,
+    loading,
+    error,
+  } = useDoc(userId, {
+    populate: {
+      companyId: {
+        as: 'company',
+        // Nested populate: also populate the company's industry
+        populate: {
+          industryId: {
+            as: 'industry',
+          },
+        },
+      },
+      managerId: {
+        as: 'manager',
+      },
+      departmentId: {
+        as: 'department',
+        db: 'organization', // Populate from a different database
+      },
+    },
+    maxDepth: 2,
+  })
+
+  if (error) {
+    return <div>Error loading user: {error.message}</div>
+  }
+
+  if (loading && !user) {
+    return <div>Loading user profile...</div>
+  }
+
+  return (
+    <div>
+      <h1>{user.name}</h1>
+      <p>Email: {user.email}</p>
+      <p>Company: {user.company?.name}</p>
+      <p>Industry: {user.company?.industry?.name}</p>
+      <p>Manager: {user.manager?.name}</p>
+      <p>Department: {user.department?.name}</p>
+    </div>
+  )
+}
+```
+
+### Populate with Initial Value
+
+```jsx
+import React from 'react'
+import { useDoc } from 'use-pouchdb'
+
+export function PostEditor({ postId }) {
+  const {
+    doc: post,
+    loading,
+    error,
+  } = useDoc(
+    postId,
+    {
+      populate: {
+        authorId: {
+          as: 'author',
+        },
+        categoryId: {
+          as: 'category',
+        },
+      },
+    },
+    () => ({
+      _id: postId,
+      title: 'New Post',
+      content: '',
+      authorId: null,
+      categoryId: null,
+      // Initial populated values
+      author: { name: 'Loading...' },
+      category: { name: 'Uncategorized' },
+    })
+  )
+
+  if (error) {
+    return <div>Error: {error.message}</div>
+  }
+
+  return (
+    <form>
+      <h2>Edit Post: {post.title}</h2>
+      <p>Author: {post.author?.name}</p>
+      <p>Category: {post.category?.name}</p>
+      <textarea value={post.content} readOnly />
+    </form>
   )
 }
 ```
