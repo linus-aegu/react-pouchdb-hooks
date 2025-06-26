@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useCallback, useMemo } from 'react'
+import PouchDB from 'pouchdb-core'
 import { matchesSelector } from 'pouchdb-selector-core'
 
 import { useContext } from './context'
@@ -224,7 +225,25 @@ export default function useFind<Content extends {}>(
     skip,
   ])
 
-  return state
+  // PERFORMANCE FIX: Memoize the result to prevent unnecessary re-renders
+  // when the state object changes but values are identical
+  const memoizedResult = useMemo(
+    () => ({
+      ...state,
+    }),
+    [
+      // Use document fingerprints for efficient change detection
+      JSON.stringify(
+        state.docs?.map(doc => ({ _id: doc._id, _rev: doc._rev }))
+      ),
+      state.loading,
+      state.error?.message,
+      state.state,
+      state.warning,
+    ]
+  )
+
+  return memoizedResult
 }
 
 /**

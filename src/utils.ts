@@ -3,11 +3,20 @@ import isEqual from 'fast-deep-equal'
 
 /**
  * Memorize a value. Only invalidate if the value in it did change. Does a deep equal.
+ *
+ * PERFORMANCE OPTIMIZATION: Now checks reference equality first before
+ * performing expensive deep comparison, reducing CPU overhead.
+ *
  * @param option Options to memorize.
  */
 export function useDeepMemo<T>(option: T): T {
   const last = useRef(option)
   return useMemo(() => {
+    // PERFORMANCE: Check reference equality first to avoid expensive deep comparison
+    if (last.current === option) {
+      return last.current
+    }
+    // Only perform deep comparison if reference changed
     if (isEqual(last.current, option)) {
       return last.current
     } else {

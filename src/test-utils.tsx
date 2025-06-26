@@ -93,3 +93,42 @@ export async function sleep(milliseconds: number): Promise<void> {
     setTimeout(resolve, milliseconds)
   })
 }
+
+// Performance test utilities without StrictMode to avoid double rendering
+export function renderHookForPerformance<P, R>(
+  callback: (props: P) => R,
+  options?: Options<P>
+): RenderHookResult<R, P> {
+  const optionsObject: RenderHookOptions<P> | undefined =
+    options != null
+      ? {
+          initialProps: options.initialProps,
+          wrapper: function Wrapper({ children }) {
+            return <Provider pouchdb={options.pouchdb}>{children}</Provider>
+          },
+        }
+      : undefined
+
+  return testingLibraryRenderHook(callback, optionsObject)
+}
+
+export function renderHookWithMultiDbContextForPerformance<P, R>(
+  callback: (props: P) => R,
+  options: MultiDbOptions<P>
+): RenderHookResult<R, P> {
+  const optionsObject: RenderHookOptions<P> = {
+    initialProps: options.initialProps,
+    wrapper: function Wrapper({ children }) {
+      return (
+        <Provider
+          databases={{ main: options.main, other: options.other }}
+          default="main"
+        >
+          {children}
+        </Provider>
+      )
+    },
+  }
+
+  return testingLibraryRenderHook(callback, optionsObject)
+}
