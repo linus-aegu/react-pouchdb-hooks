@@ -46,14 +46,20 @@ export default class SubscriptionManager {
   #didUnsubscribeAll = false
   #batchingEnabled = true
   #batchDelay = 16
+  #leadingEdge = true
 
   constructor(
     pouch: PouchDB.Database,
-    options?: { enableBatching?: boolean; batchDelay?: number }
+    options?: {
+      enableBatching?: boolean
+      batchDelay?: number
+      leadingEdge?: boolean
+    }
   ) {
     this.#pouch = pouch
     this.#batchingEnabled = options?.enableBatching ?? true
     this.#batchDelay = options?.batchDelay ?? 16
+    this.#leadingEdge = options?.leadingEdge ?? true
     this.#destroyListener = () => {
       this.unsubscribeAll()
     }
@@ -74,7 +80,8 @@ export default class SubscriptionManager {
       this.#docsSubscription = createDocSubscription(
         this.#pouch,
         this.#batchingEnabled,
-        this.#batchDelay
+        this.#batchDelay,
+        this.#leadingEdge
       )
     }
 
@@ -186,7 +193,8 @@ export default class SubscriptionManager {
 function createDocSubscription(
   pouch: PouchDB.Database,
   batchingEnabled: boolean,
-  batchDelay: number
+  batchDelay: number,
+  leadingEdge: boolean
 ): DocsSubscription {
   let docsSubscription: DocsSubscription | null = null
 
@@ -204,6 +212,68 @@ function createDocSubscription(
         : (change.doc as PouchDB.Core.Document<{}>)
 
       if (batchingEnabled) {
+        const hasAll = docsSubscription.all.size > 0
+        const idSubscriptions = docsSubscription.ids.get(change.id)
+
+        // Leading edge: process first change immediately if no timeout exists
+        if (leadingEdge && !docsSubscription.batchTimeout) {
+          // Process this change immediately
+          if (hasAll) {
+            notify(
+              docsSubscription.all,
+              change.deleted || false,
+              change.id,
+              doc as PouchDB.Core.Document<Record<string, unknown>>
+            )
+          }
+          if (idSubscriptions) {
+            notify(
+              idSubscriptions,
+              change.deleted || false,
+              change.id,
+              doc as PouchDB.Core.Document<Record<string, unknown>>
+            )
+          }
+
+          // Start batching timer for subsequent changes
+          docsSubscription.batchTimeout = setTimeout(() => {
+            if (docsSubscription) {
+              const changesToProcess = Array.from(
+                docsSubscription.pendingChanges.values()
+              )
+              docsSubscription.pendingChanges.clear()
+              docsSubscription.batchTimeout = null
+
+              for (const pendingChange of changesToProcess) {
+                const hasAll = docsSubscription.all.size > 0
+                const idSubscriptions = docsSubscription.ids.get(
+                  pendingChange.id
+                )
+
+                if (hasAll) {
+                  notify(
+                    docsSubscription.all,
+                    pendingChange.deleted,
+                    pendingChange.id,
+                    pendingChange.doc
+                  )
+                }
+                if (idSubscriptions) {
+                  notify(
+                    idSubscriptions,
+                    pendingChange.deleted,
+                    pendingChange.id,
+                    pendingChange.doc
+                  )
+                }
+              }
+            }
+          }, batchDelay) as NodeJS.Timeout
+
+          return // Don't add to pending changes since we processed it immediately
+        }
+
+        // Add to pending changes (either not leading edge, or subsequent changes)
         const pendingChange: PendingChange = {
           deleted: change.deleted || false,
           id: change.id,
@@ -213,39 +283,42 @@ function createDocSubscription(
 
         docsSubscription.pendingChanges.set(change.id, pendingChange)
 
-        if (docsSubscription.batchTimeout) return
+        // If no timeout exists and not leading edge, or this is a subsequent change
+        if (!docsSubscription.batchTimeout && !leadingEdge) {
+          docsSubscription.batchTimeout = setTimeout(() => {
+            if (docsSubscription) {
+              const changesToProcess = Array.from(
+                docsSubscription.pendingChanges.values()
+              )
+              docsSubscription.pendingChanges.clear()
+              docsSubscription.batchTimeout = null
 
-        docsSubscription.batchTimeout = setTimeout(() => {
-          if (docsSubscription) {
-            const changesToProcess = Array.from(
-              docsSubscription.pendingChanges.values()
-            )
-            docsSubscription.pendingChanges.clear()
-            docsSubscription.batchTimeout = null
-
-            for (const pendingChange of changesToProcess) {
-              const hasAll = docsSubscription.all.size > 0
-              const idSubscriptions = docsSubscription.ids.get(pendingChange.id)
-
-              if (hasAll) {
-                notify(
-                  docsSubscription.all,
-                  pendingChange.deleted,
-                  pendingChange.id,
-                  pendingChange.doc
+              for (const pendingChange of changesToProcess) {
+                const hasAll = docsSubscription.all.size > 0
+                const idSubscriptions = docsSubscription.ids.get(
+                  pendingChange.id
                 )
-              }
-              if (idSubscriptions) {
-                notify(
-                  idSubscriptions,
-                  pendingChange.deleted,
-                  pendingChange.id,
-                  pendingChange.doc
-                )
+
+                if (hasAll) {
+                  notify(
+                    docsSubscription.all,
+                    pendingChange.deleted,
+                    pendingChange.id,
+                    pendingChange.doc
+                  )
+                }
+                if (idSubscriptions) {
+                  notify(
+                    idSubscriptions,
+                    pendingChange.deleted,
+                    pendingChange.id,
+                    pendingChange.doc
+                  )
+                }
               }
             }
-          }
-        }, batchDelay) as NodeJS.Timeout
+          }, batchDelay) as NodeJS.Timeout
+        }
       } else {
         const hasAll = docsSubscription.all.size > 0
         const idSubscriptions = docsSubscription.ids.get(change.id)

@@ -289,6 +289,7 @@ test('should pass subscription options to SubscriptionManager', () => {
   const subscriptionOptions = {
     enableBatching: false,
     batchDelay: 100,
+    leadingEdge: false,
   }
 
   const { result } = renderHook(() => useContext(), {

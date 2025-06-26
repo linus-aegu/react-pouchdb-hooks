@@ -20,6 +20,7 @@ type ContextObject = { [key: string]: PouchContextObject }
 export interface SubscriptionOptions {
   enableBatching?: boolean
   batchDelay?: number
+  leadingEdge?: boolean
 }
 
 const PouchContext = /*#__PURE__*/ createContext<{

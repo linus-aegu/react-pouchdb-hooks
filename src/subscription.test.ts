@@ -468,10 +468,11 @@ test('should batch rapid changes when batching is enabled', async () => {
 
   myPouch.changes = changes
 
-  // Enable batching with short delay for testing
+  // Enable batching with short delay for testing, disable leading edge for traditional batching
   const subscriptionManager = new SubscriptionManager(myPouch, {
     enableBatching: true,
     batchDelay: 10,
+    leadingEdge: false,
   })
 
   subscriptionManager.subscribeToDocs(['test1', 'test2'], callback)
@@ -601,6 +602,7 @@ test('should clear pending changes on unsubscribe', async () => {
   const subscriptionManager = new SubscriptionManager(myPouch, {
     enableBatching: true,
     batchDelay: 50, // Longer delay
+    leadingEdge: false, // Disable leading edge for traditional batching behavior
   })
 
   const unsubscribe = subscriptionManager.subscribeToDocs(['test'], callback)
@@ -626,4 +628,173 @@ test('should clear pending changes on unsubscribe', async () => {
 
   // Callback should not be called since we unsubscribed
   expect(callback).not.toHaveBeenCalled()
+})
+
+test('should process first change immediately with leading edge batching', async () => {
+  const changesObject = {
+    on: jest.fn(() => changesObject),
+    cancel: jest.fn(),
+  }
+  const changes = jest.fn(() => changesObject)
+  const callback = jest.fn()
+
+  myPouch.changes = changes
+
+  // Enable leading edge batching
+  const subscriptionManager = new SubscriptionManager(myPouch, {
+    enableBatching: true,
+    batchDelay: 50,
+    leadingEdge: true,
+  })
+
+  subscriptionManager.subscribeToDocs(['test'], callback)
+
+  // Get the change handler
+  const changeHandler = changesObject.on.mock.calls.find(
+    call => call[0] === 'change'
+  )[1]
+
+  // First change should be processed immediately
+  changeHandler({
+    id: 'test',
+    seq: 1,
+    changes: [{ rev: '1-abc' }],
+    doc: { _id: 'test', _rev: '1-abc', value: 1 },
+  })
+
+  // Should be called immediately
+  expect(callback).toHaveBeenCalledTimes(1)
+  expect(callback).toHaveBeenCalledWith(
+    false,
+    'test',
+    expect.objectContaining({ _id: 'test', value: 1 })
+  )
+
+  // Second change should be batched
+  changeHandler({
+    id: 'test',
+    seq: 2,
+    changes: [{ rev: '2-def' }],
+    doc: { _id: 'test', _rev: '2-def', value: 2 },
+  })
+
+  // Should still be called only once (second change is batched)
+  expect(callback).toHaveBeenCalledTimes(1)
+
+  // Wait for batch to process
+  await new Promise(resolve => setTimeout(resolve, 60))
+
+  // Now should be called for the second change
+  expect(callback).toHaveBeenCalledTimes(2)
+  expect(callback).toHaveBeenLastCalledWith(
+    false,
+    'test',
+    expect.objectContaining({ _id: 'test', value: 2 })
+  )
+})
+
+test('should batch all changes when leading edge is disabled', async () => {
+  const changesObject = {
+    on: jest.fn(() => changesObject),
+    cancel: jest.fn(),
+  }
+  const changes = jest.fn(() => changesObject)
+  const callback = jest.fn()
+
+  myPouch.changes = changes
+
+  // Disable leading edge batching
+  const subscriptionManager = new SubscriptionManager(myPouch, {
+    enableBatching: true,
+    batchDelay: 20,
+    leadingEdge: false,
+  })
+
+  subscriptionManager.subscribeToDocs(['test1', 'test2'], callback)
+
+  // Get the change handler
+  const changeHandler = changesObject.on.mock.calls.find(
+    call => call[0] === 'change'
+  )[1]
+
+  // First change should NOT be processed immediately
+  changeHandler({
+    id: 'test1',
+    seq: 1,
+    changes: [{ rev: '1-abc' }],
+    doc: { _id: 'test1', _rev: '1-abc', value: 1 },
+  })
+
+  // Should not be called immediately
+  expect(callback).not.toHaveBeenCalled()
+
+  // Second change (different document ID)
+  changeHandler({
+    id: 'test2',
+    seq: 2,
+    changes: [{ rev: '2-def' }],
+    doc: { _id: 'test2', _rev: '2-def', value: 2 },
+  })
+
+  // Still should not be called
+  expect(callback).not.toHaveBeenCalled()
+
+  // Wait for batch to process
+  await new Promise(resolve => setTimeout(resolve, 30))
+
+  // Now should be called for both changes
+  expect(callback).toHaveBeenCalledTimes(2)
+})
+
+test('should handle multiple rapid changes with leading edge', async () => {
+  const changesObject = {
+    on: jest.fn(() => changesObject),
+    cancel: jest.fn(),
+  }
+  const changes = jest.fn(() => changesObject)
+  const callback = jest.fn()
+
+  myPouch.changes = changes
+
+  const subscriptionManager = new SubscriptionManager(myPouch, {
+    enableBatching: true,
+    batchDelay: 30,
+    leadingEdge: true,
+  })
+
+  subscriptionManager.subscribeToDocs(['test'], callback)
+
+  const changeHandler = changesObject.on.mock.calls.find(
+    call => call[0] === 'change'
+  )[1]
+
+  // Simulate rapid changes
+  for (let i = 1; i <= 5; i++) {
+    changeHandler({
+      id: 'test',
+      seq: i,
+      changes: [{ rev: `${i}-abc` }],
+      doc: { _id: 'test', _rev: `${i}-abc`, value: i },
+    })
+  }
+
+  // First change should be processed immediately
+  expect(callback).toHaveBeenCalledTimes(1)
+  expect(callback).toHaveBeenCalledWith(
+    false,
+    'test',
+    expect.objectContaining({ value: 1 })
+  )
+
+  // Wait for batch to process remaining changes
+  await new Promise(resolve => setTimeout(resolve, 40))
+
+  // Should have processed the last change (value: 5) since pending changes
+  // map overwrites previous values for the same ID
+  expect(callback).toHaveBeenCalledTimes(2)
+  expect(callback).toHaveBeenLastCalledWith(
+    false,
+    'test',
+    expect.objectContaining({ value: 5 })
+  )
 })
