@@ -964,3 +964,544 @@ describe('Recursive/Nested Populate Tests', () => {
     process.env.NODE_ENV = originalEnv
   })
 })
+
+describe('Nested Field Path Population', () => {
+  let db: PouchDB.Database
+  let mockContext: {
+    pouchdb: PouchDB.Database
+    subscriptionManager: MockSubscriptionManager
+  }
+
+  beforeEach(async () => {
+    db = new PouchDB('test-nested-populate', { adapter: 'memory' })
+    mockContext = {
+      pouchdb: db,
+      subscriptionManager: {
+        subscribeToDocs: jest.fn(() => jest.fn()),
+        subscribeToView: jest.fn(() => jest.fn()),
+        unsubscribeAll: jest.fn(),
+      },
+    }
+  })
+
+  afterEach(async () => {
+    await db.destroy()
+  })
+
+  it('should populate nested source field to flat target', async () => {
+    await db.put({
+      _id: 'cultivar_1',
+      type: 'cultivar',
+      name: 'Pink Mandevilla',
+      color: 'pink',
+    })
+
+    const documents = [
+      {
+        _id: 'order_1',
+        _rev: '1-abc',
+        type: 'order',
+        material_info: {
+          cultivar_id: 'cultivar_1',
+          quantity: 100,
+        },
+      },
+    ]
+
+    const populateConfig: PopulateConfig = {
+      'material_info.cultivar_id': { as: 'cultivar' },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext
+    )
+
+    expect(result).toHaveLength(1)
+    expect((result[0] as any).cultivar).toMatchObject({
+      _id: 'cultivar_1',
+      name: 'Pink Mandevilla',
+      color: 'pink',
+    })
+    // Original structure should remain unchanged
+    expect((result[0] as any).material_info.cultivar_id).toBe('cultivar_1')
+  })
+
+  it('should populate nested source to nested target', async () => {
+    await db.put({
+      _id: 'cultivar_1',
+      type: 'cultivar',
+      name: 'Pink Mandevilla',
+      color: 'pink',
+      size: 'medium',
+    })
+
+    const documents = [
+      {
+        _id: 'order_1',
+        _rev: '1-abc',
+        type: 'order',
+        customer: 'Garden Center ABC',
+        material_info: {
+          cultivar_id: 'cultivar_1',
+          quantity: 100,
+          pot_size: '6 inch',
+        },
+      },
+    ]
+
+    const populateConfig: PopulateConfig = {
+      'material_info.cultivar_id': { as: 'material_info.cultivar' },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext
+    )
+
+    expect(result).toHaveLength(1)
+    const order = result[0] as any
+
+    // Original fields should be preserved
+    expect(order.material_info.cultivar_id).toBe('cultivar_1')
+    expect(order.material_info.quantity).toBe(100)
+    expect(order.material_info.pot_size).toBe('6 inch')
+
+    // Populated data should be at nested location
+    expect(order.material_info.cultivar).toMatchObject({
+      _id: 'cultivar_1',
+      type: 'cultivar',
+      name: 'Pink Mandevilla',
+      color: 'pink',
+      size: 'medium',
+    })
+  })
+
+  it('should handle the material_info.cultivar_id example from requirements', async () => {
+    // Create cultivar document
+    await db.put({
+      _id: '4A',
+      type: 'cultivar',
+      name: 'Mandevilla hybrid',
+      color: 'pink',
+      size: 'large',
+    })
+
+    // Create order with nested cultivar reference
+    const documents = [
+      {
+        _id: 'order_123',
+        _rev: '1-abc',
+        type: 'order',
+        material_info: {
+          cultivar_id: '4A',
+        },
+      },
+    ]
+
+    const populateConfig: PopulateConfig = {
+      'material_info.cultivar_id': { as: 'cultivar' },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext
+    )
+
+    // Should result in order.cultivar = { _id: "4A", name: "Mandevilla hybrid", ... }
+    expect(result).toHaveLength(1)
+    expect((result[0] as any).cultivar).toMatchObject({
+      _id: '4A',
+      name: 'Mandevilla hybrid',
+      color: 'pink',
+      size: 'large',
+    })
+  })
+
+  it('should handle deeply nested paths', async () => {
+    await db.put({
+      _id: 'vendor_1',
+      type: 'vendor',
+      name: 'Acme Supplies',
+      contact: 'John Doe',
+    })
+
+    const documents = [
+      {
+        _id: 'order_1',
+        _rev: '1-abc',
+        details: {
+          shipping: {
+            vendor_id: 'vendor_1',
+            method: 'ground',
+          },
+        },
+      },
+    ]
+
+    const populateConfig: PopulateConfig = {
+      'details.shipping.vendor_id': { as: 'details.shipping.vendor' },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext
+    )
+
+    expect(result).toHaveLength(1)
+    const order = result[0] as any
+    expect(order.details.shipping.vendor).toMatchObject({
+      _id: 'vendor_1',
+      name: 'Acme Supplies',
+      contact: 'John Doe',
+    })
+    // Original fields preserved
+    expect(order.details.shipping.vendor_id).toBe('vendor_1')
+    expect(order.details.shipping.method).toBe('ground')
+  })
+
+  it('should create intermediate objects when needed for target path', async () => {
+    await db.put({
+      _id: 'user_1',
+      type: 'user',
+      name: 'John',
+      email: 'john@example.com',
+    })
+
+    const documents = [
+      {
+        _id: 'doc_1',
+        _rev: '1-abc',
+        user_id: 'user_1',
+      },
+    ]
+
+    const populateConfig: PopulateConfig = {
+      user_id: { as: 'metadata.populated.user' },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext
+    )
+
+    expect(result).toHaveLength(1)
+    const doc = result[0] as any
+
+    // Should create metadata and populated objects
+    expect(doc.metadata).toBeDefined()
+    expect(doc.metadata.populated).toBeDefined()
+    expect(doc.metadata.populated.user).toMatchObject({
+      _id: 'user_1',
+      name: 'John',
+      email: 'john@example.com',
+    })
+  })
+
+  it('should handle missing intermediate objects gracefully', async () => {
+    const documents = [
+      {
+        _id: 'doc_1',
+        _rev: '1-abc',
+        // material_info doesn't exist
+      },
+    ]
+
+    const populateConfig: PopulateConfig = {
+      'material_info.cultivar_id': { as: 'cultivar' },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext
+    )
+
+    // Should not crash, just skip population
+    expect(result).toHaveLength(1)
+    expect(result[0]).not.toHaveProperty('cultivar')
+  })
+
+  it('should handle null intermediate objects gracefully', async () => {
+    const documents = [
+      {
+        _id: 'doc_1',
+        _rev: '1-abc',
+        material_info: null as any,
+      },
+    ]
+
+    const populateConfig: PopulateConfig = {
+      'material_info.cultivar_id': { as: 'cultivar' },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext
+    )
+
+    // Should not crash, just skip population
+    expect(result).toHaveLength(1)
+    expect(result[0]).not.toHaveProperty('cultivar')
+  })
+
+  it('should work with mixed flat and nested paths', async () => {
+    await db.put({
+      _id: 'site_1',
+      type: 'site',
+      name: 'Main Site',
+    })
+
+    await db.put({
+      _id: 'cultivar_1',
+      type: 'cultivar',
+      name: 'Pink Rose',
+    })
+
+    const documents = [
+      {
+        _id: 'order_1',
+        _rev: '1-abc',
+        site_id: 'site_1',
+        material_info: {
+          cultivar_id: 'cultivar_1',
+        },
+      },
+    ]
+
+    const populateConfig: PopulateConfig = {
+      site_id: { as: 'site' },
+      'material_info.cultivar_id': { as: 'material_info.cultivar' },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext
+    )
+
+    expect(result).toHaveLength(1)
+    const order = result[0] as any
+
+    // Flat path population
+    expect(order.site).toMatchObject({
+      _id: 'site_1',
+      name: 'Main Site',
+    })
+
+    // Nested path population
+    expect(order.material_info.cultivar).toMatchObject({
+      _id: 'cultivar_1',
+      name: 'Pink Rose',
+    })
+  })
+
+  it('should support multiple nested fields in same parent object', async () => {
+    await db.put({
+      _id: 'cultivar_1',
+      type: 'cultivar',
+      name: 'Red Rose',
+    })
+
+    await db.put({
+      _id: 'supplier_1',
+      type: 'supplier',
+      name: 'Green Thumb Supplies',
+    })
+
+    const documents = [
+      {
+        _id: 'order_1',
+        _rev: '1-abc',
+        material_info: {
+          cultivar_id: 'cultivar_1',
+          supplier_id: 'supplier_1',
+          quantity: 50,
+        },
+      },
+    ]
+
+    const populateConfig: PopulateConfig = {
+      'material_info.cultivar_id': { as: 'material_info.cultivar' },
+      'material_info.supplier_id': { as: 'material_info.supplier' },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext
+    )
+
+    expect(result).toHaveLength(1)
+    const order = result[0] as any
+
+    // Both nested fields should be populated
+    expect(order.material_info.cultivar).toMatchObject({
+      _id: 'cultivar_1',
+      name: 'Red Rose',
+    })
+    expect(order.material_info.supplier).toMatchObject({
+      _id: 'supplier_1',
+      name: 'Green Thumb Supplies',
+    })
+
+    // Original fields preserved
+    expect(order.material_info.quantity).toBe(50)
+    expect(order.material_info.cultivar_id).toBe('cultivar_1')
+    expect(order.material_info.supplier_id).toBe('supplier_1')
+  })
+
+  it('should handle nested populate with nested paths', async () => {
+    // Create nested documents
+    await db.put({
+      _id: 'country_1',
+      type: 'country',
+      name: 'USA',
+    })
+
+    await db.put({
+      _id: 'supplier_1',
+      type: 'supplier',
+      name: 'Green Supplies',
+      location: {
+        country_id: 'country_1',
+      },
+    })
+
+    const documents = [
+      {
+        _id: 'order_1',
+        _rev: '1-abc',
+        material_info: {
+          supplier_id: 'supplier_1',
+        },
+      },
+    ]
+
+    const populateConfig: PopulateConfig = {
+      'material_info.supplier_id': {
+        as: 'material_info.supplier',
+        populate: {
+          'location.country_id': { as: 'location.country' },
+        },
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext
+    )
+
+    expect(result).toHaveLength(1)
+    const order = result[0] as any
+
+    // Check nested populated structure
+    expect(order.material_info.supplier.name).toBe('Green Supplies')
+    expect(order.material_info.supplier.location.country).toMatchObject({
+      _id: 'country_1',
+      name: 'USA',
+    })
+  })
+
+  it('should handle empty string as reference ID', async () => {
+    const documents = [
+      {
+        _id: 'doc_1',
+        _rev: '1-abc',
+        material_info: {
+          cultivar_id: '',
+        },
+      },
+    ]
+
+    const populateConfig: PopulateConfig = {
+      'material_info.cultivar_id': { as: 'cultivar' },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext
+    )
+
+    expect(result).toHaveLength(1)
+    expect(result[0]).not.toHaveProperty('cultivar')
+  })
+
+  it('should handle non-string reference values', async () => {
+    const documents = [
+      {
+        _id: 'doc_1',
+        _rev: '1-abc',
+        material_info: {
+          cultivar_id: 123 as any, // number instead of string
+        },
+      },
+    ]
+
+    const populateConfig: PopulateConfig = {
+      'material_info.cultivar_id': { as: 'cultivar' },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext
+    )
+
+    expect(result).toHaveLength(1)
+    expect(result[0]).not.toHaveProperty('cultivar')
+  })
+
+  it('should preserve document structure when populating to sibling paths', async () => {
+    await db.put({
+      _id: 'cultivar_1',
+      type: 'cultivar',
+      name: 'Blue Orchid',
+    })
+
+    const documents = [
+      {
+        _id: 'order_1',
+        _rev: '1-abc',
+        material_info: {
+          cultivar_id: 'cultivar_1',
+          existing_field: 'should remain',
+          nested: {
+            data: 'preserved',
+          },
+        },
+      },
+    ]
+
+    const populateConfig: PopulateConfig = {
+      'material_info.cultivar_id': { as: 'material_info.cultivar_details' },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext
+    )
+
+    const order = result[0] as any
+
+    // New field added
+    expect(order.material_info.cultivar_details).toMatchObject({
+      _id: 'cultivar_1',
+      name: 'Blue Orchid',
+    })
+
+    // All original fields preserved
+    expect(order.material_info.cultivar_id).toBe('cultivar_1')
+    expect(order.material_info.existing_field).toBe('should remain')
+    expect(order.material_info.nested.data).toBe('preserved')
+  })
+})

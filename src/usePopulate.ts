@@ -25,6 +25,37 @@ interface PopulateContext {
 }
 
 /**
+ * Get value from nested path like "material_info.cultivar_id"
+ * Returns undefined if any part of the path doesn't exist
+ */
+function getNestedValue(obj: any, path: string): any {
+  if (!obj || !path) return undefined
+  return path.split('.').reduce((current, key) => current?.[key], obj)
+}
+
+/**
+ * Set value at nested path like "material_info.cultivar"
+ * Creates intermediate objects as needed
+ */
+function setNestedValue(obj: any, path: string, value: any): void {
+  if (!obj || !path) return
+
+  const keys = path.split('.')
+  const lastKey = keys.pop()!
+
+  // Navigate/create path to the parent object
+  const target = keys.reduce((current, key) => {
+    if (current[key] === undefined || current[key] === null) {
+      current[key] = {}
+    }
+    return current[key]
+  }, obj)
+
+  // Set the final value
+  target[lastKey] = value
+}
+
+/**
  * Core populate utility function that can be called from other hooks
  * This is the pure function version that doesn't use React hooks
  */
@@ -63,7 +94,8 @@ export async function populateDocuments<T extends Record<string, unknown>>(
 
     for (const doc of documents) {
       for (const [fieldName] of Object.entries(populateConfig)) {
-        const referenceId = doc[fieldName]
+        // Use getNestedValue to support nested paths
+        const referenceId = getNestedValue(doc, fieldName)
         if (referenceId && typeof referenceId === 'string') {
           // Prevent circular references - don't fetch if already visited
           if (!visited.has(referenceId)) {
@@ -110,7 +142,8 @@ export async function populateDocuments<T extends Record<string, unknown>>(
       }
 
       for (const [fieldName, fieldConfig] of Object.entries(populateConfig)) {
-        const referenceId = doc[fieldName]
+        // Use getNestedValue to support nested paths
+        const referenceId = getNestedValue(doc, fieldName)
         if (referenceId && typeof referenceId === 'string') {
           // Skip if this would create a circular reference
           if (visited.has(referenceId)) {
@@ -119,8 +152,8 @@ export async function populateDocuments<T extends Record<string, unknown>>(
 
           const referencedDoc = referenceCache[referenceId]
           if (referencedDoc) {
-            ;(populatedDoc as Record<string, unknown>)[fieldConfig.as] =
-              referencedDoc
+            // Use setNestedValue to support nested 'as' paths
+            setNestedValue(populatedDoc, fieldConfig.as, referencedDoc)
           } else if (process.env.NODE_ENV === 'development') {
             console.warn(
               `Populate: Reference not found for ${fieldName}: ${referenceId}`
@@ -139,32 +172,30 @@ export async function populateDocuments<T extends Record<string, unknown>>(
 
         for (const [, fieldConfig] of Object.entries(populateConfig)) {
           // Check if this field has nested populate config
-          if (
-            fieldConfig.populate &&
-            (nestedDoc as Record<string, unknown>)[fieldConfig.as]
-          ) {
-            const populatedField = (nestedDoc as Record<string, unknown>)[
-              fieldConfig.as
-            ] as Record<string, unknown>
+          if (fieldConfig.populate) {
+            // Use getNestedValue to access the populated field at nested path
+            const populatedField = getNestedValue(nestedDoc, fieldConfig.as)
 
-            // Recursively populate the nested document
-            const nestedPopulated = await populateDocuments(
-              [populatedField],
-              fieldConfig.populate,
-              context,
-              {
-                ...options,
-                maxDepth,
-                _visited: new Set(visited).add(
-                  typeof doc._id === 'string' ? doc._id : ''
-                ),
-                _currentDepth: currentDepth + 1,
+            if (populatedField) {
+              // Recursively populate the nested document
+              const nestedPopulated = await populateDocuments(
+                [populatedField as Record<string, unknown>],
+                fieldConfig.populate,
+                context,
+                {
+                  ...options,
+                  maxDepth,
+                  _visited: new Set(visited).add(
+                    typeof doc._id === 'string' ? doc._id : ''
+                  ),
+                  _currentDepth: currentDepth + 1,
+                }
+              )
+
+              if (nestedPopulated.length > 0) {
+                // Use setNestedValue to update the nested populated field
+                setNestedValue(nestedDoc, fieldConfig.as, nestedPopulated[0])
               }
-            )
-
-            if (nestedPopulated.length > 0) {
-              ;(nestedDoc as Record<string, unknown>)[fieldConfig.as] =
-                nestedPopulated[0]
             }
           }
         }
