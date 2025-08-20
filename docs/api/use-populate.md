@@ -24,12 +24,12 @@ This hook is used internally by other hooks (`useDoc`, `useFind`, `useAllDocs`, 
 
 The `populate` option accepts a configuration object where:
 
-- **Key**: The field name in your document that contains a reference ID
+- **Key**: The field name in your document that contains a reference ID. Supports dot notation for nested fields (e.g., `'authorId'` or `'material_info.cultivar_id'`)
 - **Value**: Configuration for how to populate that field
 
 ```typescript
 interface PopulateFieldConfig {
-  as: string // Field name where populated document will be stored
+  as: string // Where to place the populated document. Supports dot notation (e.g., 'author' or 'material_info.cultivar')
   db?: string // Database name if different from current (optional)
   populate?: PopulateConfig // Nested populate configuration (recursive)
 }
@@ -44,6 +44,11 @@ interface PopulateOptions {
   db?: string
 }
 ```
+
+Dot notation allows you to:
+
+- Access reference IDs from nested objects in your documents
+- Place populated documents at nested locations, keeping related data together
 
 ## Result
 
@@ -71,22 +76,32 @@ interface PopulateOptions {
 
 ### Basic Population
 
+Populate works with both flat and nested field references using dot notation:
+
 ```jsx
 import React from 'react'
 import { usePopulate } from '@aegu/react-pouchdb-hooks'
 
-export function PopulateExample({ rawDocument }) {
+export function PopulateExample({ document }) {
   const {
     docs: populatedDoc,
     loading,
     error,
-  } = usePopulate(rawDocument, {
+  } = usePopulate(document, {
     populate: {
+      // Flat field references
       authorId: {
         as: 'author',
       },
       categoryId: {
         as: 'category',
+      },
+      // Nested field references work the same way with dot notation
+      'material_info.cultivar_id': {
+        as: 'material_info.cultivar', // Keeps populated data near its reference
+      },
+      'shipping.vendor_id': {
+        as: 'shipping.vendor',
       },
     },
   })
@@ -104,7 +119,16 @@ export function PopulateExample({ rawDocument }) {
       <h1>{populatedDoc.title}</h1>
       <p>By: {populatedDoc.author?.name}</p>
       <p>Category: {populatedDoc.category?.name}</p>
-      <p>{populatedDoc.content}</p>
+
+      {/* Nested populated data */}
+      {populatedDoc.material_info && (
+        <div>
+          <p>Cultivar: {populatedDoc.material_info.cultivar?.name}</p>
+          <p>Quantity: {populatedDoc.material_info.quantity}</p>
+        </div>
+      )}
+
+      <p>Vendor: {populatedDoc.shipping?.vendor?.name}</p>
     </article>
   )
 }

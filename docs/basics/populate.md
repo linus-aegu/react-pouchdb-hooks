@@ -11,50 +11,54 @@ This is similar to SQL JOINs or MongoDB's populate functionality, but optimized 
 
 ## Basic Populate Example
 
-Let's say you have blog posts that reference authors:
+Let's say you have documents that reference other documents, both at the top level and nested within objects:
 
 ```javascript
-// Blog post document
+// Order document with both flat and nested references
 {
-  _id: 'post_123',
-  title: 'Getting Started with PouchDB',
-  content: 'PouchDB is a great database...',
-  authorId: 'user_456', // Reference to author
-  categoryId: 'cat_789' // Reference to category
+  _id: 'order_123',
+  title: 'Garden Supply Order',
+  siteId: 'site_456',  // Flat reference
+  material_info: {
+    cultivar_id: 'cultivar_789',  // Nested reference
+    quantity: 100
+  }
 }
 
-// Author document
+// Site document
 {
-  _id: 'user_456',
-  name: 'John Doe',
-  email: 'john@example.com'
+  _id: 'site_456',
+  name: 'Main Greenhouse'
 }
 
-// Category document
+// Cultivar document
 {
-  _id: 'cat_789',
-  name: 'Technology'
+  _id: 'cultivar_789',
+  name: 'Pink Mandevilla',
+  color: 'pink'
 }
 ```
 
-Without populate, you'd need to fetch the post, then separately fetch the author and category. With populate, you can do it all in one hook call:
+Without populate, you'd need to fetch the order, then separately fetch the site and cultivar. With populate, you can do it all in one hook call using dot notation for nested references:
 
 ```jsx
 import React from 'react'
 import { useDoc } from '@aegu/react-pouchdb-hooks'
 
-export function BlogPost({ postId }) {
+export function OrderDetails({ orderId }) {
   const {
-    doc: post,
+    doc: order,
     loading,
     error,
-  } = useDoc(postId, {
+  } = useDoc(orderId, {
     populate: {
-      authorId: {
-        as: 'author', // The populated author will be available as post.author
+      // Flat reference - just use the field name
+      siteId: {
+        as: 'site',
       },
-      categoryId: {
-        as: 'category', // The populated category will be available as post.category
+      // Nested reference - use dot notation to access the field
+      'material_info.cultivar_id': {
+        as: 'material_info.cultivar', // Keeps populated data near its reference
       },
     },
   })
@@ -64,10 +68,14 @@ export function BlogPost({ postId }) {
 
   return (
     <article>
-      <h1>{post.title}</h1>
-      <p>By: {post.author?.name}</p>
-      <p>Category: {post.category?.name}</p>
-      <div>{post.content}</div>
+      <h1>{order.title}</h1>
+      <p>Site: {order.site?.name}</p>
+      <div>
+        <h3>Material Info</h3>
+        <p>Cultivar: {order.material_info?.cultivar?.name}</p>
+        <p>Color: {order.material_info?.cultivar?.color}</p>
+        <p>Quantity: {order.material_info?.quantity}</p>
+      </div>
     </article>
   )
 }
@@ -77,19 +85,21 @@ export function BlogPost({ postId }) {
 
 The populate configuration is an object where:
 
-- **Key**: The field name in your document that contains the reference ID
+- **Key**: The field path to the reference ID. Use dot notation for nested fields (e.g., `'authorId'` or `'material_info.cultivar_id'`)
 - **Value**: Configuration object with these properties:
-  - `as`: The field name where the populated document will be stored
+  - `as`: Where to place the populated document. Use dot notation for nested placement (e.g., `'author'` or `'material_info.cultivar'`)
   - `db`: (Optional) Database name if the referenced document is in a different database
   - `populate`: (Optional) Nested populate configuration for the referenced document
 
 ```typescript
 interface PopulateFieldConfig {
-  as: string // Field name where populated document will be stored
+  as: string // Where to place the populated document (supports dot notation)
   db?: string // Database name if different from current
   populate?: PopulateConfig // Nested populate configuration
 }
 ```
+
+Dot notation makes it natural to work with nested document structures, keeping populated data organized near its references.
 
 ## Nested Population
 

@@ -140,6 +140,49 @@ export default function Post({ postId }) {
 }
 ```
 
+### Populate Referenced Documents
+
+reactPouchDBHooks supports automatic population of referenced documents, similar to SQL JOINs. Use dot notation for nested field references:
+
+```jsx
+import React from 'react'
+import { useDoc } from '@aegu/react-pouchdb-hooks'
+
+export default function OrderDetails({ orderId }) {
+  const {
+    doc: order,
+    loading,
+    error,
+  } = useDoc(orderId, {
+    populate: {
+      // Flat references
+      siteId: { as: 'site' },
+      customerId: { as: 'customer' },
+      // Nested references - use dot notation
+      'material_info.cultivar_id': { as: 'material_info.cultivar' },
+      'shipping.vendor_id': { as: 'shipping.vendor' },
+    },
+  })
+
+  if (loading) return <div>Loading...</div>
+  if (error) return <div>Error: {error.name}</div>
+
+  return (
+    <article>
+      <h1>Order for {order.customer?.name}</h1>
+      <p>Site: {order.site?.name}</p>
+
+      <h3>Material</h3>
+      <p>Cultivar: {order.material_info?.cultivar?.name}</p>
+      <p>Quantity: {order.material_info?.quantity}</p>
+
+      <h3>Shipping</h3>
+      <p>Vendor: {order.shipping?.vendor?.name}</p>
+    </article>
+  )
+}
+```
+
 ## Changelog
 
 reactPouchDBHooks follows [semantic versioning](https://semver.org/). To see a changelog with all
