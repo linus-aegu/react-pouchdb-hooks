@@ -23,3 +23,4 @@
   - [useFind](./api/use-find.md)
   - [useView](./api/use-view.md)
   - [usePopulate](./api/use-populate.md)
+  - [Query Key Pattern](./api/query-key.md)

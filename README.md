@@ -183,6 +183,28 @@ export default function OrderDetails({ orderId }) {
 }
 ```
 
+## Query Key Pattern
+
+All query hooks (`useFind`, `useAllDocs`, `useView`) support **query keys** for stable query identification and optimal performance, similar to TanStack Query and SWR:
+
+```typescript
+// TanStack Query style
+const { docs } = useFind({
+  selector: { type: 'Product' },
+  queryKey: ['products', categoryId, filters], // Stable cache key
+})
+
+// Auto-optimized (backward compatible)
+const { docs } = useFind({
+  selector: { type: 'Product' },
+  // queryKey auto-generated for optimal performance
+})
+```
+
+Query keys prevent unnecessary database queries when components re-render with recreated objects, providing significant performance improvements.
+
+[Learn more about Query Keys →](./docs/api/query-key.md)
+
 ## Changelog
 
 reactPouchDBHooks follows [semantic versioning](https://semver.org/). To see a changelog with all

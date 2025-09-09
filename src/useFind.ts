@@ -6,6 +6,7 @@ import type SubscriptionManager from './subscription'
 import useStateMachine, { ResultType } from './state-machine'
 import { useDeepMemo, CommonOptions } from './utils'
 import { populateDocuments } from './usePopulate'
+import { QueryKeyOptions, useQueryKey } from './query-key'
 
 /**
  * Set which index to use for the query. Or create one and use it. It can be:
@@ -19,7 +20,7 @@ export type FindHookIndexOption =
   | [string, string]
   | PouchDB.Find.CreateIndexOptions['index']
 
-export interface FindHookOptions extends CommonOptions {
+export interface FindHookOptions extends CommonOptions, QueryKeyOptions {
   /**
    * Set which index to use for the query. Or create one and use it. It can be:
    *
@@ -77,14 +78,33 @@ export default function useFind<Content extends Record<string, unknown>>(
   }
 
   // Extract populate option
-  const { populate, ...findOptions } = options
-  const index = useDeepMemo(findOptions.index)
-  const selector = useDeepMemo(findOptions.selector)
-  const fields = useDeepMemo(findOptions.fields)
-  const sort = useDeepMemo(findOptions.sort)
+  const {
+    populate,
+    queryKey: userQueryKey,
+    staleTime,
+    cacheTime,
+    ...findOptions
+  } = options
+
+  // PERFORMANCE OPTIMIZATION: Use queryKey pattern as single stable dependency
+  const queryRelevantFields = [
+    'index',
+    'selector',
+    'fields',
+    'sort',
+    'limit',
+    'skip',
+  ] as const
+  const queryKey = useQueryKey(
+    { ...findOptions, queryKey: userQueryKey },
+    queryRelevantFields
+  )
+
+  // Memoize populate separately as it affects result processing, not query identity
   const populateMemo = useDeepMemo(populate)
-  const limit = findOptions.limit
-  const skip = findOptions.skip
+
+  // Extract query options
+  const { index, selector, fields, sort, limit, skip } = findOptions
 
   const [state, dispatch] = useStateMachine<PouchDB.Find.FindResponse<Content>>(
     () => ({
@@ -253,12 +273,7 @@ export default function useFind<Content extends Record<string, unknown>>(
     pouch,
     subscriptionManager,
     dispatch,
-    index,
-    selector,
-    fields,
-    sort,
-    limit,
-    skip,
+    queryKey, // Single stable dependency replaces: index, selector, fields, sort, limit, skip
     populateMemo,
     options?.maxDepth,
   ])

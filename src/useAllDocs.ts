@@ -4,6 +4,7 @@ import { useContext } from './context'
 import useStateMachine, { ResultType } from './state-machine'
 import { useDeepMemo, CommonOptions } from './utils'
 import { populateDocuments } from './usePopulate'
+import { QueryKeyOptions, useQueryKey } from './query-key'
 
 /**
  * Get all docs or a slice of all docs and subscribe to their updates.
@@ -11,6 +12,7 @@ import { populateDocuments } from './usePopulate'
  */
 export default function useAllDocs<Content extends Record<string, unknown>>(
   options?: CommonOptions &
+    QueryKeyOptions &
     (
       | PouchDB.Core.AllDocsWithKeyOptions
       | PouchDB.Core.AllDocsWithKeysOptions
@@ -20,8 +22,33 @@ export default function useAllDocs<Content extends Record<string, unknown>>(
 ): ResultType<PouchDB.Core.AllDocsResponse<Content>> {
   const { pouchdb: pouch, subscriptionManager } = useContext(options?.db)
 
-  // Extract populate option
-  const { populate, ...allDocsOptions } = options || {}
+  // Extract populate and queryKey options
+  const {
+    populate,
+    queryKey: userQueryKey,
+    staleTime,
+    cacheTime,
+    ...allDocsOptions
+  } = options || {}
+
+  // PERFORMANCE OPTIMIZATION: Use queryKey pattern as single stable dependency
+  const queryRelevantFields = [
+    'include_docs',
+    'conflicts',
+    'attachments',
+    'binary',
+    'limit',
+    'skip',
+    'descending',
+    'update_seq',
+    'startkey',
+    'endkey',
+    'inclusive_end',
+    'key',
+    'keys',
+  ] as const
+
+  // Extract options for immediate use
   const {
     include_docs,
     conflicts,
@@ -35,9 +62,21 @@ export default function useAllDocs<Content extends Record<string, unknown>>(
   const { startkey, endkey, inclusive_end } =
     (allDocsOptions as PouchDB.Core.AllDocsWithinRangeOptions) || {}
   const { key } = (allDocsOptions as PouchDB.Core.AllDocsWithKeyOptions) || {}
-  const keys: string[] | undefined = useDeepMemo(
-    (allDocsOptions as PouchDB.Core.AllDocsWithKeysOptions)?.keys
+  const keys: string[] | undefined = (
+    allDocsOptions as PouchDB.Core.AllDocsWithKeysOptions
+  )?.keys
+
+  const queryKey = useQueryKey(
+    {
+      ...allDocsOptions,
+      keys, // Include keys in the options for stable comparison
+      queryKey: userQueryKey,
+    },
+    queryRelevantFields
   )
+
+  // Memoize populate separately as it affects result processing, not query identity
+  const populateMemo = useDeepMemo(populate)
 
   const [state, dispatch, replace] = useStateMachine<
     PouchDB.Core.AllDocsResponse<Content>
@@ -197,20 +236,8 @@ export default function useAllDocs<Content extends Record<string, unknown>>(
     replace,
     pouch,
     subscriptionManager,
-    include_docs,
-    conflicts,
-    attachments,
-    binary,
-    startkey,
-    endkey,
-    inclusive_end,
-    limit,
-    skip,
-    descending,
-    key,
-    keys,
-    update_seq,
-    populate,
+    queryKey, // Single stable dependency replaces all query-related options
+    populateMemo,
     options?.maxDepth,
   ])
 

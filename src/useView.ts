@@ -7,6 +7,7 @@ import useStateMachine, { ResultType, Dispatch } from './state-machine'
 import { useDeepMemo, CommonOptions } from './utils'
 import { populateDocuments } from './usePopulate'
 import type { PopulateConfig, PopulateOptions } from './populate-types'
+import { QueryKeyOptions, useQueryKey } from './query-key'
 
 /* typescript-eslint-disable @typescript-eslint/ban-types */
 type ViewResponseBase<Result extends Record<string, unknown>> =
@@ -35,7 +36,8 @@ export default function useView<
   fun: string | PouchDB.Map<Model, Result> | PouchDB.Filter<Model, Result>,
   opts?: PouchDB.Query.Options<Model, Result> & {
     update_seq?: boolean
-  } & CommonOptions
+  } & CommonOptions &
+    QueryKeyOptions
 ): ViewResponse<Result> {
   const { pouchdb: pouch, subscriptionManager } = useContext(opts?.db)
 
@@ -47,8 +49,37 @@ export default function useView<
 
   const lastView = useRef<string | null>(null)
 
-  // Extract populate option
-  const { populate, ...viewOptions } = opts || {}
+  // Extract populate and queryKey options
+  const {
+    populate,
+    queryKey: userQueryKey,
+    staleTime,
+    cacheTime,
+    ...viewOptions
+  } = opts || {}
+
+  // PERFORMANCE OPTIMIZATION: Use queryKey pattern as single stable dependency
+  const queryRelevantFields = [
+    'reduce',
+    'include_docs',
+    'conflicts',
+    'attachments',
+    'binary',
+    'inclusive_end',
+    'limit',
+    'skip',
+    'descending',
+    'group',
+    'group_level',
+    'update_seq',
+    'stale',
+    'startkey',
+    'endkey',
+    'key',
+    'keys',
+  ] as const
+
+  // Extract options for immediate use
   const {
     reduce,
     include_docs,
@@ -65,10 +96,24 @@ export default function useView<
     stale,
   } = viewOptions
 
-  const startkey = useDeepMemo(opts?.startkey)
-  const endkey = useDeepMemo(opts?.endkey)
-  const key = useDeepMemo(opts?.key)
-  const keys = useDeepMemo(opts?.keys)
+  const startkey = opts?.startkey
+  const endkey = opts?.endkey
+  const key = opts?.key
+  const keys = opts?.keys
+
+  const queryKey = useQueryKey(
+    {
+      ...viewOptions,
+      startkey,
+      endkey,
+      key,
+      keys,
+      queryKey: userQueryKey,
+    },
+    queryRelevantFields
+  )
+
+  // Memoize populate separately as it affects result processing, not query identity
   const populateMemo = useDeepMemo(populate)
 
   const [state, dispatch] = useStateMachine<ViewResponseBase<Result>>(() => ({
@@ -124,24 +169,8 @@ export default function useView<
     dispatch,
     pouch,
     subscriptionManager,
-    fun,
-    reduce,
-    include_docs,
-    conflicts,
-    attachments,
-    binary,
-    startkey,
-    endkey,
-    inclusive_end,
-    limit,
-    skip,
-    descending,
-    key,
-    keys,
-    group,
-    group_level,
-    update_seq,
-    stale,
+    fun, // Keep fun as separate dependency as it's the view function/name
+    queryKey, // Single stable dependency replaces all query-related options
     populateMemo,
   ])
 
