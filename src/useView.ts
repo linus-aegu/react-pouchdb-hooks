@@ -77,7 +77,7 @@ export default function useView<
     'endkey',
     'key',
     'keys',
-  ] as const
+  ] as (keyof typeof viewOptions)[]
 
   // Extract options for immediate use
   const {

@@ -46,7 +46,7 @@ export default function useAllDocs<Content extends Record<string, unknown>>(
     'inclusive_end',
     'key',
     'keys',
-  ] as const
+  ] as (keyof typeof allDocsOptions)[]
 
   // Extract options for immediate use
   const {

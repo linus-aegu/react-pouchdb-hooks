@@ -94,7 +94,7 @@ export default function useFind<Content extends Record<string, unknown>>(
     'sort',
     'limit',
     'skip',
-  ] as const
+  ] as (keyof typeof findOptions)[]
   const queryKey = useQueryKey(
     { ...findOptions, queryKey: userQueryKey },
     queryRelevantFields
