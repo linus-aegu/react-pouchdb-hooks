@@ -10,41 +10,49 @@ export interface QueryKeyOptions {
    * If provided, this will be used instead of auto-generating from options.
    */
   queryKey?: string | readonly unknown[]
-
-  /**
-   * How long data stays fresh (in ms). Defaults to 0 (always stale).
-   * Only relevant for future caching implementations.
-   */
-  staleTime?: number
-
-  /**
-   * How long unused data stays in cache (in ms). Defaults to 5 minutes.
-   * Only relevant for future caching implementations.
-   */
-  cacheTime?: number
 }
 
 /**
  * Deterministic serialization that handles object key ordering
  * and common edge cases in PouchDB options
  */
-export function stableStringify(obj: unknown): string {
+export function stableStringify(obj: unknown, visited = new WeakSet()): string {
   if (obj === null) return 'null'
   if (obj === undefined) return 'undefined'
   if (typeof obj !== 'object') return JSON.stringify(obj)
-  if (Array.isArray(obj)) {
-    return '[' + obj.map(stableStringify).join(',') + ']'
+
+  // Check for circular references
+  if (visited.has(obj as Record<string, unknown>)) {
+    return `{error:${Date.now()}}`
   }
 
+  if (Array.isArray(obj)) {
+    visited.add(obj)
+    try {
+      const result =
+        '[' + obj.map(item => stableStringify(item, visited)).join(',') + ']'
+      visited.delete(obj)
+      return result
+    } catch (error) {
+      visited.delete(obj)
+      console.warn('Query key serialization failed, using fallback:', error)
+      return `[error:${Date.now()}]`
+    }
+  }
+
+  visited.add(obj)
   try {
     // Sort keys for deterministic serialization
     const sortedKeys = Object.keys(obj as Record<string, unknown>).sort()
     const pairs = sortedKeys.map(key => {
       const value = (obj as Record<string, unknown>)[key]
-      return JSON.stringify(key) + ':' + stableStringify(value)
+      return JSON.stringify(key) + ':' + stableStringify(value, visited)
     })
-    return '{' + pairs.join(',') + '}'
+    const result = '{' + pairs.join(',') + '}'
+    visited.delete(obj)
+    return result
   } catch (error) {
+    visited.delete(obj)
     // Handle circular references or other serialization errors
     console.warn('Query key serialization failed, using fallback:', error)
     return `{error:${Date.now()}}`
@@ -211,7 +219,7 @@ export const queryKeyGenerator = new QueryKeyGenerator()
  */
 export function useQueryKey<T extends Record<string, unknown>>(
   options: T & QueryKeyOptions,
-  relevantFields: (keyof T)[]
+  relevantFields: (keyof T)[],
 ): string {
   const generator = queryKeyGenerator
 
@@ -231,9 +239,5 @@ export function useQueryKey<T extends Record<string, unknown>>(
 
     // Generate stable key from the query-relevant options
     return generator.generate(queryRelevantOptions)
-  }, [
-    // Create a JSON string of relevant fields as dependency
-    options.queryKey,
-    ...relevantFields.map(field => options[field]),
-  ])
+  }, [generator, options, relevantFields])
 }
