@@ -7,10 +7,9 @@ import { useReducer, useMemo, useCallback, useRef } from 'react'
 export default function useStateMachine<Result>(
   initialValue: initValueType<Result>,
 ): StateMachineResultType<Result> {
-  const [currentState, dispatch] = useReducer<
-    reducerType<Result>,
-    initValueType<Result>
-  >(reducer, initialValue, (initialValue: initValueType<Result>) => {
+  const initReducerState = (
+    initialValue: initValueType<Result>,
+  ): State & Result => {
     if (typeof initialValue === 'function') {
       initialValue = (initialValue as () => Result)()
     }
@@ -24,11 +23,17 @@ export default function useStateMachine<Result>(
     return {
       ...(initialValue as Result),
       error: null,
-      state: 'loading',
-    }
-  })
+      state: 'loading' as QueryState,
+    } as State & Result
+  }
 
-  const state = useMemo(
+  const [currentState, dispatch] = useReducer(
+    reducer,
+    initialValue,
+    initReducerState,
+  )
+
+  const state: ResultType<Result> = useMemo(
     () => ({
       ...currentState,
       // Add loading indicator
@@ -52,11 +57,6 @@ export default function useStateMachine<Result>(
 }
 
 export type QueryState = 'loading' | 'done' | 'error'
-
-type reducerType<Result> = (
-  state: State & Result,
-  action: Actions<Result>,
-) => State & Result
 
 interface State {
   /**
@@ -115,21 +115,21 @@ function reducer<Result>(
     case 'loading_started':
       return {
         ...state,
-        state: 'loading',
+        state: 'loading' as QueryState,
       }
 
     case 'loading_finished':
       return {
         ...action.payload,
         error: null,
-        state: 'done',
-      }
+        state: 'done' as QueryState,
+      } as State & Result
 
     case 'loading_error':
       return {
         ...state,
         ...(action.payload.setResult ? action.payload.result || {} : {}),
-        state: 'error',
+        state: 'error' as QueryState,
         error: action.payload.error,
       }
 

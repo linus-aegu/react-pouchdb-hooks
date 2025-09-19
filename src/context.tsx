@@ -39,7 +39,7 @@ if (process.env.NODE_ENV !== 'production') {
  * Provide access to a database.
  */
 export interface SingleDbProviderArguments {
-  children: JSX.Element | ReactNode
+  children: ReactNode
   pouchdb: PouchDB.Database
   name?: string
   subscriptionOptions?: SubscriptionOptions
@@ -49,7 +49,7 @@ export interface SingleDbProviderArguments {
  * Provide access to multiple databases at once.
  */
 export interface MultiDbProviderArguments {
-  children: JSX.Element | ReactNode
+  children: ReactNode
   databases: { [key: string]: PouchDB.Database }
   default: string
   subscriptionOptions?: SubscriptionOptions
