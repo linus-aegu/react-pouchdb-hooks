@@ -552,7 +552,7 @@ describe('populateDocuments', () => {
       await populateDocuments(documents, populateConfig, mockContext)
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/Populate \[site_id\] took \d+ms for 1 docs/),
+        expect.stringMatching(/Populate \[site_id\] took \d+ms for 1 docs,/),
       )
 
       consoleSpy.mockRestore()
@@ -968,11 +968,11 @@ describe('Recursive/Nested Populate Tests', () => {
 
     expect(logSpy).toHaveBeenCalledWith(
       expect.stringMatching(
-        /Populate \[owner_id\] took \d+ms for 1 docs \(depth 1\)/,
+        /Populate \[owner_id\] took \d+ms for 1 docs \(depth 1\/3\)/,
       ),
     )
     expect(logSpy).toHaveBeenCalledWith(
-      expect.stringMatching(/Populate \[site_id\] took \d+ms for 1 docs$/),
+      expect.stringMatching(/Populate \[site_id\] took \d+ms for 1 docs,/),
     )
 
     logSpy.mockRestore()

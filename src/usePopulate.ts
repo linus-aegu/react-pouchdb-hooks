@@ -329,11 +329,29 @@ export async function populateDocuments<T extends Record<string, unknown>>(
     if (process.env.NODE_ENV === 'development') {
       const duration = Date.now() - startTime
       const fieldNames = Object.keys(populateConfig)
-      const depthInfo = currentDepth > 0 ? ` (depth ${currentDepth})` : ''
+      const depthInfo =
+        currentDepth > 0 ? ` (depth ${currentDepth}/${maxDepth})` : ''
+      const refsInfo =
+        referenceIds.size > 0
+          ? ` fetched ${referenceIds.size} refs`
+          : ' no refs'
+      const optionsInfo = []
+
+      // Include relevant options in debug output
+      if (options.maxDepth !== undefined && options.maxDepth !== 3) {
+        optionsInfo.push(`maxDepth: ${options.maxDepth}`)
+      }
+      if (visited.size > 0) {
+        optionsInfo.push(`visited: ${visited.size}`)
+      }
+
+      const optionsSuffix =
+        optionsInfo.length > 0 ? ` (${optionsInfo.join(', ')})` : ''
+
       console.debug(
         `Populate [${fieldNames.join(', ')}] took ${duration}ms for ${
           documents.length
-        } docs${depthInfo}`,
+        } docs${depthInfo},${refsInfo}${optionsSuffix}`,
       )
     }
 
