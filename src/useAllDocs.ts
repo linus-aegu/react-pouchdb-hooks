@@ -1,10 +1,29 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 
 import { useContext } from './context'
 import useStateMachine, { ResultType } from './state-machine'
 import { useDeepMemo, CommonOptions } from './utils'
 import { populateDocuments } from './usePopulate'
 import { QueryKeyOptions, useQueryKey } from './query-key'
+
+/**
+ * Query-relevant fields for stable query key generation
+ */
+const ALLDOCS_QUERY_RELEVANT_FIELDS = [
+  'include_docs',
+  'conflicts',
+  'attachments',
+  'binary',
+  'limit',
+  'skip',
+  'descending',
+  'update_seq',
+  'startkey',
+  'endkey',
+  'inclusive_end',
+  'key',
+  'keys',
+] as const
 
 /**
  * Get all docs or a slice of all docs and subscribe to their updates.
@@ -22,25 +41,11 @@ export default function useAllDocs<Content extends Record<string, unknown>>(
 ): ResultType<PouchDB.Core.AllDocsResponse<Content>> {
   const { pouchdb: pouch, subscriptionManager } = useContext(options?.db)
 
-  // Extract populate and queryKey options
-  const { populate, queryKey: userQueryKey, ...allDocsOptions } = options || {}
+  // Stabilize the entire options object first using useDeepMemo
+  const stableOptions = useDeepMemo(options || {})
 
-  // PERFORMANCE OPTIMIZATION: Use queryKey pattern as single stable dependency
-  const queryRelevantFields = [
-    'include_docs',
-    'conflicts',
-    'attachments',
-    'binary',
-    'limit',
-    'skip',
-    'descending',
-    'update_seq',
-    'startkey',
-    'endkey',
-    'inclusive_end',
-    'key',
-    'keys',
-  ] as (keyof typeof allDocsOptions)[]
+  // Extract populate and queryKey options from stable options
+  const { populate, queryKey: userQueryKey, ...allDocsOptions } = stableOptions
 
   // Extract options for immediate use
   const {
@@ -60,17 +65,23 @@ export default function useAllDocs<Content extends Record<string, unknown>>(
     allDocsOptions as PouchDB.Core.AllDocsWithKeysOptions
   )?.keys
 
-  const queryKey = useQueryKey(
-    {
+  // Create stable options object for queryKey generation
+  const queryKeyOptions = useMemo(
+    () => ({
       ...allDocsOptions,
       keys, // Include keys in the options for stable comparison
       queryKey: userQueryKey,
-    },
-    queryRelevantFields,
+    }),
+    [allDocsOptions, keys, userQueryKey],
   )
 
-  // Memoize populate separately as it affects result processing, not query identity
-  const populateMemo = useDeepMemo(populate)
+  // PERFORMANCE OPTIMIZATION: Use queryKey pattern as single stable dependency
+  const queryKey = useQueryKey(
+    queryKeyOptions,
+    ALLDOCS_QUERY_RELEVANT_FIELDS as unknown as (keyof typeof allDocsOptions)[],
+  )
+
+  // populate is already stable from stableOptions, no need for additional memoization
 
   const [state, dispatch, replace] = useStateMachine<
     PouchDB.Core.AllDocsResponse<Content>
@@ -128,7 +139,7 @@ export default function useAllDocs<Content extends Record<string, unknown>>(
                   docsToPopulate,
                   populate,
                   { pouchdb: pouch, subscriptionManager },
-                  { maxDepth: options?.maxDepth },
+                  { maxDepth: stableOptions?.maxDepth },
                 )
 
                 // Update rows with populated documents
@@ -234,8 +245,8 @@ export default function useAllDocs<Content extends Record<string, unknown>>(
     pouch,
     subscriptionManager,
     queryKey, // Single stable dependency replaces all query-related options
-    populateMemo,
-    options?.maxDepth,
+    populate,
+    stableOptions?.maxDepth,
   ])
 
   return state

@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import isEqual from 'fast-deep-equal'
+import { useDeepMemo } from './utils'
 
 /**
  * Configuration options for query key generation
@@ -221,23 +222,30 @@ export function useQueryKey<T extends Record<string, unknown>>(
   options: T & QueryKeyOptions,
   relevantFields: (keyof T)[],
 ): string {
-  const generator = queryKeyGenerator
+  // Stabilize inputs using useDeepMemo to prevent unnecessary recalculations
+  const stableOptions = useDeepMemo(options)
+  const stableFields = useDeepMemo(relevantFields)
+
+  // Single ref for the generator to avoid it in deps
+  const generatorRef = useRef(queryKeyGenerator)
 
   return useMemo(() => {
+    const generator = generatorRef.current
+
     // If user provided explicit queryKey, use it
-    if (options.queryKey !== undefined) {
-      return generator.generateFromUserKey(options.queryKey)
+    if (stableOptions.queryKey !== undefined) {
+      return generator.generateFromUserKey(stableOptions.queryKey)
     }
 
     // Extract only query-relevant fields for key generation
     const queryRelevantOptions: Record<string, unknown> = {}
-    for (const field of relevantFields) {
-      if (field in options && field !== 'queryKey') {
-        queryRelevantOptions[field as string] = options[field]
+    for (const field of stableFields) {
+      if (field in stableOptions && field !== 'queryKey') {
+        queryRelevantOptions[field as string] = stableOptions[field]
       }
     }
 
     // Generate stable key from the query-relevant options
     return generator.generate(queryRelevantOptions)
-  }, [generator, options, relevantFields])
+  }, [stableOptions, stableFields])
 }

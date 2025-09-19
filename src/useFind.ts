@@ -60,6 +60,18 @@ export interface FindHookOptions extends CommonOptions, QueryKeyOptions {
 }
 
 /**
+ * Query-relevant fields for stable query key generation
+ */
+const FIND_QUERY_RELEVANT_FIELDS = [
+  'index',
+  'selector',
+  'fields',
+  'sort',
+  'limit',
+  'skip',
+] as const
+
+/**
  * Query, and optionally create, a Mango index and subscribe to its updates.
  * @param {object} [opts] A combination of PouchDB's find options and create index options.
  */
@@ -77,25 +89,25 @@ export default function useFind<Content extends Record<string, unknown>>(
     )
   }
 
-  // Extract populate option
-  const { populate, queryKey: userQueryKey, ...findOptions } = options
+  // Stabilize the entire options object first using useDeepMemo
+  const stableOptions = useDeepMemo(options)
 
-  // PERFORMANCE OPTIMIZATION: Use queryKey pattern as single stable dependency
-  const queryRelevantFields = [
-    'index',
-    'selector',
-    'fields',
-    'sort',
-    'limit',
-    'skip',
-  ] as (keyof typeof findOptions)[]
-  const queryKey = useQueryKey(
-    { ...findOptions, queryKey: userQueryKey },
-    queryRelevantFields,
+  // Extract populate option from stable options
+  const { populate, queryKey: userQueryKey, ...findOptions } = stableOptions
+
+  // Create stable options object for queryKey generation
+  const queryKeyOptions = useMemo(
+    () => ({ ...findOptions, queryKey: userQueryKey }),
+    [findOptions, userQueryKey],
   )
 
-  // Memoize populate separately as it affects result processing, not query identity
-  const populateMemo = useDeepMemo(populate)
+  // PERFORMANCE OPTIMIZATION: Use queryKey pattern as single stable dependency
+  const queryKey = useQueryKey(
+    queryKeyOptions,
+    FIND_QUERY_RELEVANT_FIELDS as unknown as (keyof typeof findOptions)[],
+  )
+
+  // populate is already stable from stableOptions, no need for additional memoization
 
   // Extract query options
   const { index, selector, fields, sort, limit, skip } = findOptions
@@ -177,13 +189,13 @@ export default function useFind<Content extends Record<string, unknown>>(
           }
 
           // Apply populate if configured
-          if (populateMemo && result.docs.length > 0) {
+          if (populate && result.docs.length > 0) {
             try {
               const populatedDocs = await populateDocuments(
                 result.docs as Record<string, unknown>[],
-                populateMemo,
+                populate,
                 { pouchdb: pouch, subscriptionManager },
-                { maxDepth: options?.maxDepth },
+                { maxDepth: stableOptions?.maxDepth },
               )
 
               dispatch({
@@ -271,8 +283,8 @@ export default function useFind<Content extends Record<string, unknown>>(
     subscriptionManager,
     dispatch,
     queryKey, // Single stable dependency replaces: index, selector, fields, sort, limit, skip
-    populateMemo,
-    options?.maxDepth,
+    populate,
+    stableOptions?.maxDepth,
   ])
 
   // PERFORMANCE FIX: Memoize the result to prevent unnecessary re-renders

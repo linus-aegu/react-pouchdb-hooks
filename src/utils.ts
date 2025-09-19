@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useRef } from 'react'
 import isEqual from 'fast-deep-equal'
 import type { PopulateConfig } from './populate-types'
 
@@ -11,20 +11,19 @@ import type { PopulateConfig } from './populate-types'
  * @param option Options to memorize.
  */
 export function useDeepMemo<T>(option: T): T {
-  const last = useRef(option)
-  return useMemo(() => {
-    // PERFORMANCE: Check reference equality first to avoid expensive deep comparison
-    if (last.current === option) {
-      return last.current
-    }
-    // Only perform deep comparison if reference changed
-    if (isEqual(last.current, option)) {
-      return last.current
-    } else {
-      last.current = option
-      return option
-    }
-  }, [option])
+  const last = useRef<T>(option)
+  const current = useRef<T>(option)
+
+  // Always update current ref
+  current.current = option
+
+  // Check if deeply equal - if not, update stable ref
+  if (!isEqual(last.current, current.current)) {
+    last.current = current.current
+  }
+
+  // Always return the stable reference
+  return last.current
 }
 
 export interface CommonOptions {

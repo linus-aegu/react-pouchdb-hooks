@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 import { MISSING_DOC } from 'pouchdb-errors'
 
 import { useContext } from './context'
@@ -22,6 +22,28 @@ type ViewResponseBase<Result extends Record<string, unknown>> =
 export type ViewResponse<T extends Record<string, unknown>> = ResultType<
   ViewResponseBase<T>
 >
+
+/**
+ * Query-relevant fields for stable query key generation
+ */
+const VIEW_QUERY_RELEVANT_FIELDS = [
+  'reduce',
+  'include_docs',
+  'conflicts',
+  'attachments',
+  'binary',
+  'inclusive_end',
+  'limit',
+  'skip',
+  'descending',
+  'group',
+  'group_level',
+  'update_seq',
+  'startkey',
+  'endkey',
+  'key',
+  'keys',
+] as const
 
 /**
  * Query a view and subscribe to its updates.
@@ -49,29 +71,11 @@ export default function useView<
 
   const lastView = useRef<string | null>(null)
 
-  // Extract populate and queryKey options
-  const { populate, queryKey: userQueryKey, ...viewOptions } = opts || {}
+  // Stabilize the entire options object first using useDeepMemo
+  const stableOpts = useDeepMemo(opts || {})
 
-  // PERFORMANCE OPTIMIZATION: Use queryKey pattern as single stable dependency
-  const queryRelevantFields = [
-    'reduce',
-    'include_docs',
-    'conflicts',
-    'attachments',
-    'binary',
-    'inclusive_end',
-    'limit',
-    'skip',
-    'descending',
-    'group',
-    'group_level',
-    'update_seq',
-    'stale',
-    'startkey',
-    'endkey',
-    'key',
-    'keys',
-  ] as (keyof typeof viewOptions)[]
+  // Extract populate and queryKey options from stable options
+  const { populate, queryKey: userQueryKey, ...viewOptions } = stableOpts
 
   // Extract options for immediate use
   const {
@@ -90,25 +94,31 @@ export default function useView<
     stale,
   } = viewOptions
 
-  const startkey = opts?.startkey
-  const endkey = opts?.endkey
-  const key = opts?.key
-  const keys = opts?.keys
+  const startkey = stableOpts?.startkey
+  const endkey = stableOpts?.endkey
+  const key = stableOpts?.key
+  const keys = stableOpts?.keys
 
-  const queryKey = useQueryKey(
-    {
+  // Create stable options object for queryKey generation
+  const queryKeyOptions = useMemo(
+    () => ({
       ...viewOptions,
       startkey,
       endkey,
       key,
       keys,
       queryKey: userQueryKey,
-    },
-    queryRelevantFields,
+    }),
+    [viewOptions, startkey, endkey, key, keys, userQueryKey],
   )
 
-  // Memoize populate separately as it affects result processing, not query identity
-  const populateMemo = useDeepMemo(populate)
+  // PERFORMANCE OPTIMIZATION: Use queryKey pattern as single stable dependency
+  const queryKey = useQueryKey(
+    queryKeyOptions,
+    VIEW_QUERY_RELEVANT_FIELDS as unknown as (keyof typeof viewOptions)[],
+  )
+
+  // populate is already stable from stableOpts, no need for additional memoization
 
   const [state, dispatch] = useStateMachine<ViewResponseBase<Result>>(() => ({
     rows: [],
@@ -139,6 +149,8 @@ export default function useView<
       // only add the stale option if the view is not the same as last request.
       // Because the view is already upto date.
       stale: lastView.current === fun ? undefined : stale,
+      // Include maxDepth for populate functionality
+      maxDepth: stableOpts?.maxDepth,
     }
 
     if (typeof fun === 'string') {
@@ -149,7 +161,7 @@ export default function useView<
         subscriptionManager,
         fun,
         options,
-        populateMemo,
+        populate,
       )
     } else {
       return doTemporaryQuery(
@@ -158,7 +170,7 @@ export default function useView<
         subscriptionManager,
         fun,
         options,
-        populateMemo,
+        populate,
       )
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -168,7 +180,7 @@ export default function useView<
     subscriptionManager,
     fun, // Keep fun as separate dependency as it's the view function/name
     queryKey, // Single stable dependency replaces all query-related options
-    populateMemo,
+    populate,
   ])
 
   return state
