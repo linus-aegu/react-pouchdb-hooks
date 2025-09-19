@@ -31,32 +31,26 @@ export type ViewResponse<T extends Record<string, unknown>> = ResultType<
 export default function useView<
   Content extends Record<string, unknown>,
   Result extends Record<string, unknown>,
-  Model extends Record<string, unknown> = Content
+  Model extends Record<string, unknown> = Content,
 >(
   fun: string | PouchDB.Map<Model, Result> | PouchDB.Filter<Model, Result>,
   opts?: PouchDB.Query.Options<Model, Result> & {
     update_seq?: boolean
   } & CommonOptions &
-    QueryKeyOptions
+    QueryKeyOptions,
 ): ViewResponse<Result> {
   const { pouchdb: pouch, subscriptionManager } = useContext(opts?.db)
 
   if (typeof pouch?.query !== 'function') {
     throw new TypeError(
-      'db.query() is not defined. Please install "pouchdb-mapreduce"'
+      'db.query() is not defined. Please install "pouchdb-mapreduce"',
     )
   }
 
   const lastView = useRef<string | null>(null)
 
   // Extract populate and queryKey options
-  const {
-    populate,
-    queryKey: userQueryKey,
-    staleTime,
-    cacheTime,
-    ...viewOptions
-  } = opts || {}
+  const { populate, queryKey: userQueryKey, ...viewOptions } = opts || {}
 
   // PERFORMANCE OPTIMIZATION: Use queryKey pattern as single stable dependency
   const queryRelevantFields = [
@@ -110,7 +104,7 @@ export default function useView<
       keys,
       queryKey: userQueryKey,
     },
-    queryRelevantFields
+    queryRelevantFields,
   )
 
   // Memoize populate separately as it affects result processing, not query identity
@@ -122,6 +116,8 @@ export default function useView<
     offset: 0,
   }))
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Individual options are captured by queryKey for performance optimization
   useEffect(() => {
     const options = {
       reduce,
@@ -153,7 +149,7 @@ export default function useView<
         subscriptionManager,
         fun,
         options,
-        populateMemo
+        populateMemo,
       )
     } else {
       return doTemporaryQuery(
@@ -162,9 +158,10 @@ export default function useView<
         subscriptionManager,
         fun,
         options,
-        populateMemo
+        populateMemo,
       )
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     dispatch,
     pouch,
@@ -188,14 +185,14 @@ export default function useView<
  */
 function doDDocQuery<
   Model extends Record<string, unknown>,
-  Result extends Record<string, unknown>
+  Result extends Record<string, unknown>,
 >(
   dispatch: Dispatch<PouchDB.Query.Response<Result>>,
   pouch: PouchDB.Database<Record<string, unknown>>,
   subscriptionManager: SubscriptionManager,
   fn: string,
   option?: PouchDB.Query.Options<Model, Result> & PopulateOptions,
-  populate?: PopulateConfig
+  populate?: PopulateConfig,
 ): () => void {
   let isMounted = true
   let isFetching = false // A query is underway.
@@ -238,7 +235,7 @@ function doDDocQuery<
         } else {
           query()
         }
-      }
+      },
     )
   }
 
@@ -267,7 +264,7 @@ function doDDocQuery<
               docsToPopulate as Record<string, unknown>[],
               populate,
               { pouchdb: pouch, subscriptionManager },
-              { maxDepth: option?.maxDepth }
+              { maxDepth: option?.maxDepth },
             )
 
             // Update rows with populated documents
@@ -379,14 +376,14 @@ function doDDocQuery<
  */
 function doTemporaryQuery<
   Model extends Record<string, unknown>,
-  Result extends Record<string, unknown>
+  Result extends Record<string, unknown>,
 >(
   dispatch: Dispatch<PouchDB.Query.Response<Result>>,
   pouch: PouchDB.Database<Record<string, unknown>>,
   subscriptionManager: SubscriptionManager,
   fn: PouchDB.Map<Model, Result> | PouchDB.Filter<Model, Result>,
   option?: PouchDB.Query.Options<Model, Result> & PopulateOptions,
-  populate?: PopulateConfig
+  populate?: PopulateConfig,
 ): () => void {
   let isMounted = true
   let isFetching = false // A query is underway.
@@ -421,7 +418,7 @@ function doTemporaryQuery<
               docsToPopulate as Record<string, unknown>[],
               populate,
               { pouchdb: pouch, subscriptionManager },
-              { maxDepth: option?.maxDepth }
+              { maxDepth: option?.maxDepth },
             )
 
             // Update rows with populated documents
@@ -525,7 +522,7 @@ function doTemporaryQuery<
       } catch (err) {
         console.error(err)
       }
-    }
+    },
   )
 
   return () => {

@@ -28,7 +28,7 @@ export interface MultiDbOptions<P> {
 
 export function renderHook<P, R>(
   callback: (props: P) => R,
-  options?: Options<P>
+  options?: Options<P>,
 ): RenderHookResult<R, P> {
   const optionsObject: RenderHookOptions<P> | undefined =
     options != null
@@ -49,7 +49,7 @@ export function renderHook<P, R>(
 
 export function renderHookWithMultiDbContext<P, R>(
   callback: (props: P) => R,
-  options: MultiDbOptions<P>
+  options: MultiDbOptions<P>,
 ): RenderHookResult<R, P> {
   const optionsObject: RenderHookOptions<P> = {
     initialProps: options.initialProps,
@@ -74,18 +74,31 @@ export async function waitForNextUpdate<T = unknown>(result: {
   current: T
 }): Promise<void> {
   const currentResult = result.current
-  await waitFor(() => {
-    expect(result.current).not.toBe(currentResult)
-  })
+
+  await waitFor(
+    () => {
+      expect(result.current).not.toBe(currentResult)
+    },
+    {
+      timeout: 10000, // 10 second timeout for React 19
+      interval: 100, // Check every 100ms
+    },
+  )
 }
 
 export async function waitForLoadingChange(
   result: { current: { loading: boolean } },
-  desiredState: boolean
+  desiredState: boolean,
 ): Promise<void> {
-  await waitFor(() => {
-    expect(result.current.loading).toBe(desiredState)
-  })
+  await waitFor(
+    () => {
+      expect(result.current.loading).toBe(desiredState)
+    },
+    {
+      timeout: 10000, // 10 second timeout for React 19
+      interval: 100, // Check every 100ms
+    },
+  )
 }
 
 export async function sleep(milliseconds: number): Promise<void> {
@@ -97,7 +110,7 @@ export async function sleep(milliseconds: number): Promise<void> {
 // Performance test utilities without StrictMode to avoid double rendering
 export function renderHookForPerformance<P, R>(
   callback: (props: P) => R,
-  options?: Options<P>
+  options?: Options<P>,
 ): RenderHookResult<R, P> {
   const optionsObject: RenderHookOptions<P> | undefined =
     options != null
@@ -114,7 +127,7 @@ export function renderHookForPerformance<P, R>(
 
 export function renderHookWithMultiDbContextForPerformance<P, R>(
   callback: (props: P) => R,
-  options: MultiDbOptions<P>
+  options: MultiDbOptions<P>,
 ): RenderHookResult<R, P> {
   const optionsObject: RenderHookOptions<P> = {
     initialProps: options.initialProps,

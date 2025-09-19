@@ -5,7 +5,7 @@ import { useContext } from './context'
  * @param {string | undefined} dbName Select the database to be returned by its name/key.
  */
 export default function usePouch<T extends {}>(
-  dbName?: string
+  dbName?: string,
 ): PouchDB.Database<T> {
   return useContext(dbName).pouchdb as PouchDB.Database<T>
 }

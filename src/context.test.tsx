@@ -24,10 +24,10 @@ test('should render a Provider which provide the passed pouchdb database', async
   expect(result.current.pouchdb).toBe(myPouch)
   expect(typeof result.current.subscriptionManager).toBe('object')
   expect(typeof result.current.subscriptionManager.subscribeToDocs).toBe(
-    'function'
+    'function',
   )
   expect(typeof result.current.subscriptionManager.subscribeToView).toBe(
-    'function'
+    'function',
   )
 
   await myPouch.destroy()
@@ -131,7 +131,7 @@ test('should render a Provider that gives access to multiple databases', async (
 
   expect(result.current.pouchdb).toBe(other)
   expect(result.current.subscriptionManager).not.toBe(
-    myPouchSubscriptionManager
+    myPouchSubscriptionManager,
   )
 
   rerender('myPouch')
@@ -381,6 +381,6 @@ test('should recreate subscription managers when options change', () => {
 
   // Should get a new subscription manager instance
   expect(result.current.subscriptionManager).not.toBe(
-    initialSubscriptionManager
+    initialSubscriptionManager,
   )
 })

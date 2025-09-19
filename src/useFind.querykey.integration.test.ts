@@ -52,7 +52,7 @@ describe('queryKey Integration: Query Optimization', () => {
     myPouch.find = jest.fn(async options => {
       queryExecutionCount++
       return originalFind.call(myPouch, options)
-    }) as any
+    }) as jest.MockedFunction<typeof myPouch.find>
 
     // Test that stable queryKey prevents re-queries
     const { result, rerender } = renderHook(
@@ -75,7 +75,7 @@ describe('queryKey Integration: Query Optimization', () => {
       {
         initialProps: 'asc' as const,
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -110,7 +110,7 @@ describe('queryKey Integration: Query Optimization', () => {
     myPouch.find = jest.fn(async options => {
       queryExecutionCount++
       return originalFind.call(myPouch, options)
-    }) as any
+    }) as jest.MockedFunction<typeof myPouch.find>
 
     const { result, rerender } = renderHook(
       (status: string) => {
@@ -122,7 +122,7 @@ describe('queryKey Integration: Query Optimization', () => {
       {
         initialProps: 'active',
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -176,7 +176,7 @@ describe('queryKey Integration: Query Optimization', () => {
     myPouch.find = jest.fn(async options => {
       queryCount++
       return originalFind.call(myPouch, options)
-    }) as any
+    }) as jest.MockedFunction<typeof myPouch.find>
 
     // Simulate component with complex filter objects
     const { result, rerender } = renderHook(
@@ -209,7 +209,7 @@ describe('queryKey Integration: Query Optimization', () => {
           version: 1,
         },
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -262,7 +262,7 @@ describe('queryKey Integration: Query Optimization', () => {
     myPouch.find = jest.fn(async options => {
       queryCount++
       return originalFind.call(myPouch, options)
-    }) as any
+    }) as jest.MockedFunction<typeof myPouch.find>
 
     // Test that auto-generated queryKey also optimizes queries
     const { result, rerender } = renderHook(
@@ -276,7 +276,7 @@ describe('queryKey Integration: Query Optimization', () => {
       {
         initialProps: 'active',
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)

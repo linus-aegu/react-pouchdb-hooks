@@ -45,7 +45,7 @@ test('should subscribe to document updates', () => {
 
   const unsubscribe = subscriptionManager.subscribeToDocs(
     ['test', 'userDoc', 'other'],
-    callback
+    callback,
   )
 
   expect(changes).toHaveBeenCalledWith({
@@ -77,11 +77,11 @@ test('should only subscribe once to document updates', () => {
 
   const unsubscribe = subscriptionManager.subscribeToDocs(
     ['test', 'userDoc', 'other'],
-    callback1
+    callback1,
   )
   const unsubscribe2 = subscriptionManager.subscribeToDocs(
     ['moar', 'why_couchdb_is_awesome'],
-    callback2
+    callback2,
   )
 
   expect(changes).toHaveBeenCalledTimes(1)
@@ -94,7 +94,7 @@ test('should only subscribe once to document updates', () => {
 
   const unsubscribe3 = subscriptionManager.subscribeToDocs(
     ['why_pouchdb_is_needed'],
-    callback3
+    callback3,
   )
   expect(changes).toHaveBeenCalledTimes(1)
 
@@ -119,7 +119,7 @@ test('should handle unsubscribing during an doc update', () => {
   }
 
   let callback: (
-    change: PouchDB.Core.ChangesResponseChange<Record<string, unknown>>
+    change: PouchDB.Core.ChangesResponseChange<Record<string, unknown>>,
   ) => void = () => {
     console.error('should not be called')
   }
@@ -172,7 +172,7 @@ test('should subscribe to view updates', () => {
 
   const unsubscribe = subscriptionManager.subscribeToView(
     'ddoc/aView',
-    callback
+    callback,
   )
 
   expect(changes).toHaveBeenCalledWith({
@@ -204,7 +204,7 @@ test('should subscribe a view updates only once', () => {
 
   const unsubscribe = subscriptionManager.subscribeToView(
     'ddoc/aView',
-    callback1
+    callback1,
   )
 
   expect(changes).toHaveBeenCalledTimes(1)
@@ -214,7 +214,7 @@ test('should subscribe a view updates only once', () => {
 
   const unsubscribeSame = subscriptionManager.subscribeToView(
     'ddoc/aView',
-    callback2
+    callback2,
   )
   expect(changes).toHaveBeenCalledTimes(1)
   expect(changesObject.cancel).not.toHaveBeenCalled()
@@ -226,7 +226,7 @@ test('should subscribe a view updates only once', () => {
 
   const unsubscribeOther = subscriptionManager.subscribeToView(
     'ddoc/otherView',
-    callback3
+    callback3,
   )
   expect(changes).toHaveBeenCalledTimes(2)
   expect(changes).toHaveBeenLastCalledWith({
@@ -267,11 +267,11 @@ test('should call the callback to documents with a document and to views with an
 
   const unsubscribeDocs = subscriptionManager.subscribeToDocs(
     ['a_document'],
-    docCallback
+    docCallback,
   )
   const unsubscribeView = subscriptionManager.subscribeToView(
     'test',
-    viewCallback
+    viewCallback,
   )
 
   const putResult = await myPouch.put({
@@ -325,15 +325,15 @@ test('should have a unsubscribeAll method', async () => {
 
   const unsubscribeDocs = subscriptionManager.subscribeToDocs(
     ['a_document'],
-    docCallback
+    docCallback,
   )
   const unsubscribeAllDocs = subscriptionManager.subscribeToDocs(
     null,
-    allDocCallback
+    allDocCallback,
   )
   const unsubscribeView = subscriptionManager.subscribeToView(
     'test',
-    viewCallback
+    viewCallback,
   )
 
   subscriptionManager.unsubscribeAll()
@@ -361,7 +361,7 @@ test('should subscribe to destroy events', async () => {
 
   const unsubscribeAll = subscriptionManager.unsubscribeAll
   subscriptionManager.unsubscribeAll = jest.fn((...args) =>
-    unsubscribeAll.call(subscriptionManager, args)
+    unsubscribeAll.call(subscriptionManager, args),
   )
 
   await db.destroy()
@@ -381,13 +381,13 @@ test('should clone the documents that are passed to document callbacks', async (
     ['a_document'],
     (_deleted, _id, doc) => {
       docs.push(doc)
-    }
+    },
   )
   const unsubscribe2 = subscriptionManager.subscribeToDocs(
     ['a_document'],
     (_deleted, _id, doc) => {
       docs.push(doc)
-    }
+    },
   )
 
   await myPouch.put({
@@ -479,7 +479,7 @@ test('should batch rapid changes when batching is enabled', async () => {
 
   // Get the change handler
   const changeHandler = changesObject.on.mock.calls.find(
-    call => call[0] === 'change'
+    call => call[0] === 'change',
   )[1]
 
   // Simulate rapid changes
@@ -508,12 +508,12 @@ test('should batch rapid changes when batching is enabled', async () => {
   expect(callback).toHaveBeenCalledWith(
     false,
     'test1',
-    expect.objectContaining({ _id: 'test1', value: 1 })
+    expect.objectContaining({ _id: 'test1', value: 1 }),
   )
   expect(callback).toHaveBeenCalledWith(
     false,
     'test2',
-    expect.objectContaining({ _id: 'test2', value: 2 })
+    expect.objectContaining({ _id: 'test2', value: 2 }),
   )
 })
 
@@ -536,7 +536,7 @@ test('should process changes immediately when batching is disabled', () => {
 
   // Get the change handler
   const changeHandler = changesObject.on.mock.calls.find(
-    call => call[0] === 'change'
+    call => call[0] === 'change',
   )[1]
 
   // Simulate change
@@ -552,7 +552,7 @@ test('should process changes immediately when batching is disabled', () => {
   expect(callback).toHaveBeenCalledWith(
     false,
     'test',
-    expect.objectContaining({ _id: 'test', value: 1 })
+    expect.objectContaining({ _id: 'test', value: 1 }),
   )
 })
 
@@ -574,7 +574,7 @@ test('should handle deleted documents with include_docs', () => {
 
   // Get the change handler
   const changeHandler = changesObject.on.mock.calls.find(
-    call => call[0] === 'change'
+    call => call[0] === 'change',
   )[1]
 
   // Simulate deleted document
@@ -609,7 +609,7 @@ test('should clear pending changes on unsubscribe', async () => {
 
   // Get the change handler
   const changeHandler = changesObject.on.mock.calls.find(
-    call => call[0] === 'change'
+    call => call[0] === 'change',
   )[1]
 
   // Simulate change
@@ -651,7 +651,7 @@ test('should process first change immediately with leading edge batching', async
 
   // Get the change handler
   const changeHandler = changesObject.on.mock.calls.find(
-    call => call[0] === 'change'
+    call => call[0] === 'change',
   )[1]
 
   // First change should be processed immediately
@@ -667,7 +667,7 @@ test('should process first change immediately with leading edge batching', async
   expect(callback).toHaveBeenCalledWith(
     false,
     'test',
-    expect.objectContaining({ _id: 'test', value: 1 })
+    expect.objectContaining({ _id: 'test', value: 1 }),
   )
 
   // Second change should be batched
@@ -689,7 +689,7 @@ test('should process first change immediately with leading edge batching', async
   expect(callback).toHaveBeenLastCalledWith(
     false,
     'test',
-    expect.objectContaining({ _id: 'test', value: 2 })
+    expect.objectContaining({ _id: 'test', value: 2 }),
   )
 })
 
@@ -714,7 +714,7 @@ test('should batch all changes when leading edge is disabled', async () => {
 
   // Get the change handler
   const changeHandler = changesObject.on.mock.calls.find(
-    call => call[0] === 'change'
+    call => call[0] === 'change',
   )[1]
 
   // First change should NOT be processed immediately
@@ -765,7 +765,7 @@ test('should handle multiple rapid changes with leading edge', async () => {
   subscriptionManager.subscribeToDocs(['test'], callback)
 
   const changeHandler = changesObject.on.mock.calls.find(
-    call => call[0] === 'change'
+    call => call[0] === 'change',
   )[1]
 
   // Simulate rapid changes
@@ -783,7 +783,7 @@ test('should handle multiple rapid changes with leading edge', async () => {
   expect(callback).toHaveBeenCalledWith(
     false,
     'test',
-    expect.objectContaining({ value: 1 })
+    expect.objectContaining({ value: 1 }),
   )
 
   // Wait for batch to process remaining changes
@@ -795,6 +795,6 @@ test('should handle multiple rapid changes with leading edge', async () => {
   expect(callback).toHaveBeenLastCalledWith(
     false,
     'test',
-    expect.objectContaining({ value: 5 })
+    expect.objectContaining({ value: 5 }),
   )
 })

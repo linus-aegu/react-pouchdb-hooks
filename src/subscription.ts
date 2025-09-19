@@ -3,7 +3,7 @@ import { clone } from 'pouchdb-utils'
 export type DocsCallback<T extends {}> = (
   deleted: boolean,
   id: PouchDB.Core.DocumentId,
-  doc?: PouchDB.Core.Document<T>
+  doc?: PouchDB.Core.Document<T>,
 ) => void
 
 interface DocsSubscription {
@@ -24,7 +24,7 @@ interface PendingChange {
 export type ViewCallback = (id: PouchDB.Core.DocumentId) => void
 export type subscribeToView = (
   fun: string,
-  callback: ViewCallback
+  callback: ViewCallback,
 ) => () => void
 
 interface SubscriptionToAView {
@@ -33,7 +33,7 @@ interface SubscriptionToAView {
 }
 export type subscribeToDocs = <T extends {}>(
   ids: PouchDB.Core.DocumentId[] | null,
-  callback: DocsCallback<T>
+  callback: DocsCallback<T>,
 ) => () => void
 
 export default class SubscriptionManager {
@@ -54,7 +54,7 @@ export default class SubscriptionManager {
       enableBatching?: boolean
       batchDelay?: number
       leadingEdge?: boolean
-    }
+    },
   ) {
     this.#pouch = pouch
     this.#batchingEnabled = options?.enableBatching ?? true
@@ -68,7 +68,7 @@ export default class SubscriptionManager {
 
   subscribeToDocs<T extends {}>(
     ids: PouchDB.Core.DocumentId[] | null,
-    callback: DocsCallback<T>
+    callback: DocsCallback<T>,
   ): () => void {
     if (this.#didUnsubscribeAll) {
       return () => {
@@ -81,7 +81,7 @@ export default class SubscriptionManager {
         this.#pouch,
         this.#batchingEnabled,
         this.#batchDelay,
-        this.#leadingEdge
+        this.#leadingEdge,
       )
     }
 
@@ -194,7 +194,7 @@ function createDocSubscription(
   pouch: PouchDB.Database,
   batchingEnabled: boolean,
   batchDelay: number,
-  leadingEdge: boolean
+  leadingEdge: boolean,
 ): DocsSubscription {
   let docsSubscription: DocsSubscription | null = null
 
@@ -223,7 +223,7 @@ function createDocSubscription(
               docsSubscription.all,
               change.deleted || false,
               change.id,
-              doc as PouchDB.Core.Document<Record<string, unknown>>
+              doc as PouchDB.Core.Document<Record<string, unknown>>,
             )
           }
           if (idSubscriptions) {
@@ -231,7 +231,7 @@ function createDocSubscription(
               idSubscriptions,
               change.deleted || false,
               change.id,
-              doc as PouchDB.Core.Document<Record<string, unknown>>
+              doc as PouchDB.Core.Document<Record<string, unknown>>,
             )
           }
 
@@ -239,7 +239,7 @@ function createDocSubscription(
           docsSubscription.batchTimeout = setTimeout(() => {
             if (docsSubscription) {
               const changesToProcess = Array.from(
-                docsSubscription.pendingChanges.values()
+                docsSubscription.pendingChanges.values(),
               )
               docsSubscription.pendingChanges.clear()
               docsSubscription.batchTimeout = null
@@ -247,7 +247,7 @@ function createDocSubscription(
               for (const pendingChange of changesToProcess) {
                 const hasAll = docsSubscription.all.size > 0
                 const idSubscriptions = docsSubscription.ids.get(
-                  pendingChange.id
+                  pendingChange.id,
                 )
 
                 if (hasAll) {
@@ -255,7 +255,7 @@ function createDocSubscription(
                     docsSubscription.all,
                     pendingChange.deleted,
                     pendingChange.id,
-                    pendingChange.doc
+                    pendingChange.doc,
                   )
                 }
                 if (idSubscriptions) {
@@ -263,7 +263,7 @@ function createDocSubscription(
                     idSubscriptions,
                     pendingChange.deleted,
                     pendingChange.id,
-                    pendingChange.doc
+                    pendingChange.doc,
                   )
                 }
               }
@@ -288,7 +288,7 @@ function createDocSubscription(
           docsSubscription.batchTimeout = setTimeout(() => {
             if (docsSubscription) {
               const changesToProcess = Array.from(
-                docsSubscription.pendingChanges.values()
+                docsSubscription.pendingChanges.values(),
               )
               docsSubscription.pendingChanges.clear()
               docsSubscription.batchTimeout = null
@@ -296,7 +296,7 @@ function createDocSubscription(
               for (const pendingChange of changesToProcess) {
                 const hasAll = docsSubscription.all.size > 0
                 const idSubscriptions = docsSubscription.ids.get(
-                  pendingChange.id
+                  pendingChange.id,
                 )
 
                 if (hasAll) {
@@ -304,7 +304,7 @@ function createDocSubscription(
                     docsSubscription.all,
                     pendingChange.deleted,
                     pendingChange.id,
-                    pendingChange.doc
+                    pendingChange.doc,
                   )
                 }
                 if (idSubscriptions) {
@@ -312,7 +312,7 @@ function createDocSubscription(
                     idSubscriptions,
                     pendingChange.deleted,
                     pendingChange.id,
-                    pendingChange.doc
+                    pendingChange.doc,
                   )
                 }
               }
@@ -328,7 +328,7 @@ function createDocSubscription(
             docsSubscription.all,
             change.deleted || false,
             change.id,
-            doc as PouchDB.Core.Document<Record<string, unknown>>
+            doc as PouchDB.Core.Document<Record<string, unknown>>,
           )
         }
         if (idSubscriptions) {
@@ -336,7 +336,7 @@ function createDocSubscription(
             idSubscriptions,
             change.deleted || false,
             change.id,
-            doc as PouchDB.Core.Document<Record<string, unknown>>
+            doc as PouchDB.Core.Document<Record<string, unknown>>,
           )
         }
       }
@@ -357,7 +357,7 @@ function notify(
   set: Set<DocsCallback<Record<string, unknown>>>,
   deleted: boolean,
   id: PouchDB.Core.DocumentId,
-  doc?: PouchDB.Core.Document<Record<string, unknown>>
+  doc?: PouchDB.Core.Document<Record<string, unknown>>,
 ) {
   for (const subscription of set) {
     try {
@@ -371,7 +371,7 @@ function notify(
 
 function subscribeToView(
   pouch: PouchDB.Database,
-  view: string
+  view: string,
 ): SubscriptionToAView {
   let viewsSubscription: SubscriptionToAView | null = null
 

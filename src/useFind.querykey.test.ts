@@ -2,7 +2,7 @@ import PouchDB from 'pouchdb-core'
 import memory from 'pouchdb-adapter-memory'
 import find from 'pouchdb-find'
 
-import { renderHook, waitForLoadingChange, act } from './test-utils'
+import { renderHook, waitForLoadingChange, act, waitFor } from './test-utils'
 import useFind from './useFind'
 
 PouchDB.plugin(memory)
@@ -50,7 +50,7 @@ describe('useFind queryKey functionality', () => {
         useFind({
           selector: { _id: { $gte: 'doc1' } },
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForLoadingChange(result, false)
@@ -70,7 +70,7 @@ describe('useFind queryKey functionality', () => {
           selector: { _id: { $gte: 'doc1', $lt: 'doc3' } },
           queryKey: 'my-custom-test-query',
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForLoadingChange(result, false)
@@ -89,7 +89,7 @@ describe('useFind queryKey functionality', () => {
           selector: { _id: { $gte: 'doc1', $lt: 'doc3' } },
           queryKey: ['test-docs', 'sorted-by-id'],
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForLoadingChange(result, false)
@@ -111,7 +111,7 @@ describe('useFind queryKey functionality', () => {
           },
           queryKey: ['test-docs', 'active-or-pending'],
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForLoadingChange(result, false)
@@ -119,8 +119,8 @@ describe('useFind queryKey functionality', () => {
     expect(result.current.docs).toHaveLength(2)
     expect(
       result.current.docs.every(doc =>
-        ['active', 'pending'].includes(doc.status)
-      )
+        ['active', 'pending'].includes(doc.status),
+      ),
     ).toBe(true)
   })
 
@@ -136,7 +136,7 @@ describe('useFind queryKey functionality', () => {
       {
         initialProps: 'query-v1',
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -163,7 +163,7 @@ describe('useFind queryKey functionality', () => {
           selector: { type: 'test', ...filters },
           queryKey: ['docs', 'by-user', userId, 'page', page, filters],
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForLoadingChange(result, false)
@@ -181,7 +181,7 @@ describe('useFind queryKey functionality', () => {
           selector: { type: 'test' },
           queryKey: 'reactive-test',
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForLoadingChange(result, false)
@@ -197,12 +197,15 @@ describe('useFind queryKey functionality', () => {
       })
     })
 
-    // Give subscription time to update
-    await new Promise(resolve => setTimeout(resolve, 200))
-
-    expect(result.current.docs).toHaveLength(3)
-    expect(result.current.docs.some(doc => doc.name === 'Document 4')).toBe(
-      true
+    // Wait for subscription to update the result
+    await waitFor(
+      () => {
+        expect(result.current.docs).toHaveLength(3)
+        expect(result.current.docs.some(doc => doc.name === 'Document 4')).toBe(
+          true,
+        )
+      },
+      { timeout: 5000 },
     )
   })
 
@@ -214,10 +217,8 @@ describe('useFind queryKey functionality', () => {
         useFind({
           selector: { type: 'test' },
           queryKey: 'config-test',
-          staleTime: 5000,
-          cacheTime: 300000,
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForLoadingChange(result, false)
@@ -238,7 +239,7 @@ describe('queryKey query optimization', () => {
     myPouch.find = jest.fn(async options => {
       queryCount++
       return originalFind.call(myPouch, options)
-    }) as any
+    }) as jest.MockedFunction<typeof myPouch.find>
 
     const { result, rerender } = renderHook(
       (status: string) => {
@@ -250,7 +251,7 @@ describe('queryKey query optimization', () => {
       {
         initialProps: 'active',
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -275,7 +276,7 @@ describe('queryKey query optimization', () => {
     myPouch.find = jest.fn(async options => {
       queryCount++
       return originalFind.call(myPouch, options)
-    }) as any
+    }) as jest.MockedFunction<typeof myPouch.find>
 
     const { result, rerender } = renderHook(
       (status: string) => {
@@ -287,7 +288,7 @@ describe('queryKey query optimization', () => {
       {
         initialProps: 'active',
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)

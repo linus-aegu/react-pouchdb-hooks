@@ -64,7 +64,7 @@ export interface FindHookOptions extends CommonOptions, QueryKeyOptions {
  * @param {object} [opts] A combination of PouchDB's find options and create index options.
  */
 export default function useFind<Content extends Record<string, unknown>>(
-  options: FindHookOptions
+  options: FindHookOptions,
 ): ResultType<PouchDB.Find.FindResponse<Content>> {
   const { pouchdb: pouch, subscriptionManager } = useContext(options.db)
 
@@ -73,18 +73,12 @@ export default function useFind<Content extends Record<string, unknown>>(
     typeof pouch?.find !== 'function'
   ) {
     throw new TypeError(
-      'db.createIndex() or/and db.find() are not defined. Please install "pouchdb-find"'
+      'db.createIndex() or/and db.find() are not defined. Please install "pouchdb-find"',
     )
   }
 
   // Extract populate option
-  const {
-    populate,
-    queryKey: userQueryKey,
-    staleTime,
-    cacheTime,
-    ...findOptions
-  } = options
+  const { populate, queryKey: userQueryKey, ...findOptions } = options
 
   // PERFORMANCE OPTIMIZATION: Use queryKey pattern as single stable dependency
   const queryRelevantFields = [
@@ -97,7 +91,7 @@ export default function useFind<Content extends Record<string, unknown>>(
   ] as (keyof typeof findOptions)[]
   const queryKey = useQueryKey(
     { ...findOptions, queryKey: userQueryKey },
-    queryRelevantFields
+    queryRelevantFields,
   )
 
   // Memoize populate separately as it affects result processing, not query identity
@@ -109,9 +103,11 @@ export default function useFind<Content extends Record<string, unknown>>(
   const [state, dispatch] = useStateMachine<PouchDB.Find.FindResponse<Content>>(
     () => ({
       docs: [],
-    })
+    }),
   )
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Individual options are captured by queryKey for performance optimization
   useEffect(() => {
     let isActive = true
     let isFetching = false
@@ -163,7 +159,7 @@ export default function useFind<Content extends Record<string, unknown>>(
         }
 
         const result = (await pouch.find(
-          queryOptions
+          queryOptions,
         )) as PouchDB.Find.FindResponse<Content>
 
         if (isActive) {
@@ -187,7 +183,7 @@ export default function useFind<Content extends Record<string, unknown>>(
                 result.docs as Record<string, unknown>[],
                 populateMemo,
                 { pouchdb: pouch, subscriptionManager },
-                { maxDepth: options?.maxDepth }
+                { maxDepth: options?.maxDepth },
               )
 
               dispatch({
@@ -244,7 +240,7 @@ export default function useFind<Content extends Record<string, unknown>>(
           selector,
           query,
           ddocId,
-          idsInResult
+          idsInResult,
         )
       })
       .catch(error => {
@@ -260,7 +256,7 @@ export default function useFind<Content extends Record<string, unknown>>(
             selector,
             query,
             null,
-            idsInResult
+            idsInResult,
           )
         }
       })
@@ -269,6 +265,7 @@ export default function useFind<Content extends Record<string, unknown>>(
       isActive = false
       unsubscribe?.()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     pouch,
     subscriptionManager,
@@ -293,7 +290,7 @@ export default function useFind<Content extends Record<string, unknown>>(
       ...state,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state, docsFingerprintStr] // docsFingerprintStr provides more efficient change detection than state.docs
+    [state, docsFingerprintStr], // docsFingerprintStr provides more efficient change detection than state.docs
   )
 
   return memoizedResult
@@ -308,7 +305,7 @@ export default function useFind<Content extends Record<string, unknown>>(
 function getIndex(
   db: PouchDB.Database,
   index: FindHookIndexOption | undefined,
-  selector: PouchDB.Find.FindRequest<{}>
+  selector: PouchDB.Find.FindRequest<{}>,
 ): Promise<[string | null, string]> {
   if (index && typeof index === 'string') {
     return findIndex(db, selector)
@@ -328,10 +325,10 @@ function getIndex(
  */
 async function createIndex(
   db: PouchDB.Database,
-  index: PouchDB.Find.CreateIndexOptions
+  index: PouchDB.Find.CreateIndexOptions,
 ): Promise<[string, string]> {
   const result = (await db.createIndex(
-    index
+    index,
   )) as PouchDB.Find.CreateIndexResponse<{}> & {
     id: PouchDB.Core.DocumentId
     name: string
@@ -346,7 +343,7 @@ async function createIndex(
  */
 async function findIndex(
   db: PouchDB.Database,
-  selector: PouchDB.Find.FindRequest<{}>
+  selector: PouchDB.Find.FindRequest<{}>,
 ): Promise<[string | null, string]> {
   const database = db as PouchDB.Database & {
     explain: (selector: PouchDB.Find.Selector) => Promise<ExplainResult>
@@ -369,7 +366,7 @@ function subscribe(
   selector: PouchDB.Find.Selector,
   query: () => void,
   id: PouchDB.Core.DocumentId | null,
-  idsInResult: { ids: Set<PouchDB.Core.DocumentId> }
+  idsInResult: { ids: Set<PouchDB.Core.DocumentId> },
 ): () => void {
   const ddocName = id
     ? '_design/' + id.replace(/^_design\//, '') // normalize, user can add a ddoc name

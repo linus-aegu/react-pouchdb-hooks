@@ -9,8 +9,8 @@ interface SubscriptionManager {
     callback: (
       deleted: boolean,
       id: string,
-      doc?: PouchDB.Core.Document<T>
-    ) => void
+      doc?: PouchDB.Core.Document<T>,
+    ) => void,
   ) => () => void
   subscribeToView: (fun: string, callback: (id: string) => void) => () => void
   unsubscribeAll: () => void
@@ -28,28 +28,43 @@ interface PopulateContext {
  * Get value from nested path like "material_info.cultivar_id"
  * Returns undefined if any part of the path doesn't exist
  */
-function getNestedValue(obj: any, path: string): any {
+function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
   if (!obj || !path) return undefined
-  return path.split('.').reduce((current, key) => current?.[key], obj)
+  return path.split('.').reduce((current: unknown, key: string): unknown => {
+    if (current && typeof current === 'object' && current !== null) {
+      return (current as Record<string, unknown>)[key]
+    }
+    return undefined
+  }, obj)
 }
 
 /**
  * Set value at nested path like "material_info.cultivar"
  * Creates intermediate objects as needed
  */
-function setNestedValue(obj: any, path: string, value: any): void {
+function setNestedValue(
+  obj: Record<string, unknown>,
+  path: string,
+  value: unknown,
+): void {
   if (!obj || !path) return
 
   const keys = path.split('.')
-  const lastKey = keys.pop()!
+  const lastKey = keys.pop() as string
 
   // Navigate/create path to the parent object
-  const target = keys.reduce((current, key) => {
-    if (current[key] === undefined || current[key] === null) {
-      current[key] = {}
-    }
-    return current[key]
-  }, obj)
+  const target = keys.reduce(
+    (
+      current: Record<string, unknown>,
+      key: string,
+    ): Record<string, unknown> => {
+      if (current[key] === undefined || current[key] === null) {
+        current[key] = {}
+      }
+      return current[key] as Record<string, unknown>
+    },
+    obj,
+  )
 
   // Set the final value
   target[lastKey] = value
@@ -63,7 +78,7 @@ export async function populateDocuments<T extends Record<string, unknown>>(
   documents: T[],
   populateConfig: PopulateConfig | undefined,
   context: PopulateContext,
-  options: PopulateOptions = {}
+  options: PopulateOptions = {},
 ): Promise<T[]> {
   // Early return if no populate config or no documents
   if (!populateConfig || !documents || documents.length === 0) {
@@ -82,7 +97,7 @@ export async function populateDocuments<T extends Record<string, unknown>>(
   if (currentDepth >= maxDepth) {
     if (process.env.NODE_ENV === 'development') {
       console.warn(
-        `Populate: Maximum depth (${maxDepth}) reached, stopping recursion`
+        `Populate: Maximum depth (${maxDepth}) reached, stopping recursion`,
       )
     }
     return documents
@@ -156,7 +171,7 @@ export async function populateDocuments<T extends Record<string, unknown>>(
             setNestedValue(populatedDoc, fieldConfig.as, referencedDoc)
           } else if (process.env.NODE_ENV === 'development') {
             console.warn(
-              `Populate: Reference not found for ${fieldName}: ${referenceId}`
+              `Populate: Reference not found for ${fieldName}: ${referenceId}`,
             )
           }
         }
@@ -186,10 +201,10 @@ export async function populateDocuments<T extends Record<string, unknown>>(
                   ...options,
                   maxDepth,
                   _visited: new Set(visited).add(
-                    typeof doc._id === 'string' ? doc._id : ''
+                    typeof doc._id === 'string' ? doc._id : '',
                   ),
                   _currentDepth: currentDepth + 1,
-                }
+                },
               )
 
               if (nestedPopulated.length > 0) {
@@ -201,7 +216,7 @@ export async function populateDocuments<T extends Record<string, unknown>>(
         }
 
         return nestedDoc
-      })
+      }),
     )
 
     // Performance monitoring in development
@@ -212,7 +227,7 @@ export async function populateDocuments<T extends Record<string, unknown>>(
       console.debug(
         `Populate [${fieldNames.join(', ')}] took ${duration}ms for ${
           documents.length
-        } docs${depthInfo}`
+        } docs${depthInfo}`,
       )
     }
 

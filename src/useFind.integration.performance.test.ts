@@ -41,7 +41,7 @@ describe('useFind Integration Performance', () => {
         totalRenderCount++
         return useFind({ selector: { type: 'test' } })
       },
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     const { result: result2 } = renderHook(
@@ -49,7 +49,7 @@ describe('useFind Integration Performance', () => {
         totalRenderCount++
         return useFind({ selector: { type: 'other' } })
       },
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await Promise.all([
@@ -79,7 +79,7 @@ describe('useFind Integration Performance', () => {
           limit: 2,
           fields: ['name', 'type'],
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForLoadingChange(result, false)
@@ -118,7 +118,7 @@ describe('useFind Integration Performance', () => {
           fields: ['type', 'role', 'active'],
         })
       },
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForLoadingChange(result, false)
@@ -150,7 +150,7 @@ describe('useFind Integration Performance', () => {
           sort: ['_id'],
         })
       },
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForLoadingChange(result, false)
@@ -177,7 +177,7 @@ describe('useFind Integration Performance', () => {
 
     // Find the updated document (it might not be at index 0 after update)
     const updatedDoc = result.current.docs.find(
-      doc => doc._id === docToUpdate._id
+      doc => doc._id === docToUpdate._id,
     )
     expect(updatedDoc).toBeDefined()
     expect(updatedDoc.name).toBe('Updated Document 1')
@@ -199,7 +199,7 @@ describe('useFind Integration Performance', () => {
           sort: ['type', 'name'],
         })
       },
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForLoadingChange(result, false)
@@ -221,7 +221,7 @@ describe('useFind Integration Performance', () => {
           selector: { nonexistent_field: 'value' },
         })
       },
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForLoadingChange(result, false)

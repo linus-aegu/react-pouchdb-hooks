@@ -90,13 +90,13 @@ export function Provider(args: ProviderArguments): React.ReactElement {
     databases = { [defaultKey]: pouchdb }
   } else {
     throw new TypeError(
-      'databases argument must be pared with the default argument'
+      'databases argument must be pared with the default argument',
     )
   }
 
   const contextObjects = useAddSubscriptionManager(
     databases,
-    finalSubscriptionOptions
+    finalSubscriptionOptions,
   )
 
   const parentDatabases = useReactContext(PouchContext).databases
@@ -128,7 +128,7 @@ export function Provider(args: ProviderArguments): React.ReactElement {
  */
 function useAddSubscriptionManager(
   databases: { [key: string]: PouchDB.Database },
-  subscriptionOptions?: SubscriptionOptions
+  subscriptionOptions?: SubscriptionOptions,
 ): ContextObject {
   // memory for last DB and SubscriptionManager pairs
   const [lastDatabases, setLastDatabases] = useState(databases)
@@ -141,7 +141,7 @@ function useAddSubscriptionManager(
   // Check if options changed using deep equality
   const didChangeOptions = !isEqual(
     subscriptionOptions,
-    lastSubscriptionOptions
+    lastSubscriptionOptions,
   )
 
   // This is for re-renders, which happens when setState is called while rendering.
@@ -199,11 +199,11 @@ export function useContext(name?: string): PouchContextObject {
     Object.keys(databases).length === 0
   ) {
     throw new Error(
-      'could not find PouchDB context value; please ensure the component is wrapped in a <Provider>'
+      'could not find PouchDB context value; please ensure the component is wrapped in a <Provider>',
     )
   }
 
-  const key = name === '_default' ? defaultKey : name ?? defaultKey
+  const key = name === '_default' ? defaultKey : (name ?? defaultKey)
 
   if (!(key in databases)) {
     throw new Error(`could not find a PouchDB database with name of "${name}"`)

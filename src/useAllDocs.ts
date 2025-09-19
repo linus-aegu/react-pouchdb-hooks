@@ -18,18 +18,12 @@ export default function useAllDocs<Content extends Record<string, unknown>>(
       | PouchDB.Core.AllDocsWithKeysOptions
       | PouchDB.Core.AllDocsWithinRangeOptions
       | PouchDB.Core.AllDocsOptions
-    )
+    ),
 ): ResultType<PouchDB.Core.AllDocsResponse<Content>> {
   const { pouchdb: pouch, subscriptionManager } = useContext(options?.db)
 
   // Extract populate and queryKey options
-  const {
-    populate,
-    queryKey: userQueryKey,
-    staleTime,
-    cacheTime,
-    ...allDocsOptions
-  } = options || {}
+  const { populate, queryKey: userQueryKey, ...allDocsOptions } = options || {}
 
   // PERFORMANCE OPTIMIZATION: Use queryKey pattern as single stable dependency
   const queryRelevantFields = [
@@ -72,7 +66,7 @@ export default function useAllDocs<Content extends Record<string, unknown>>(
       keys, // Include keys in the options for stable comparison
       queryKey: userQueryKey,
     },
-    queryRelevantFields
+    queryRelevantFields,
   )
 
   // Memoize populate separately as it affects result processing, not query identity
@@ -86,6 +80,8 @@ export default function useAllDocs<Content extends Record<string, unknown>>(
     offset: 0,
   }))
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Individual options are captured by queryKey for performance optimization
   useEffect(() => {
     let isMounted = true
     let isFetching = false
@@ -132,7 +128,7 @@ export default function useAllDocs<Content extends Record<string, unknown>>(
                   docsToPopulate,
                   populate,
                   { pouchdb: pouch, subscriptionManager },
-                  { maxDepth: options?.maxDepth }
+                  { maxDepth: options?.maxDepth },
                 )
 
                 // Update rows with populated documents
@@ -224,13 +220,14 @@ export default function useAllDocs<Content extends Record<string, unknown>>(
         } else {
           fetch()
         }
-      }
+      },
     )
 
     return () => {
       isMounted = false
       unsubscribe()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     dispatch,
     replace,
@@ -257,7 +254,7 @@ function isInRange(
   startkey: string | undefined,
   endkey: string | undefined,
   inclusive_end: boolean | undefined,
-  descending: boolean | undefined
+  descending: boolean | undefined,
 ): boolean {
   if (
     startkey &&

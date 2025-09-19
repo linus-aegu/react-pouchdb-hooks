@@ -18,7 +18,7 @@ type DocResultType<T extends Record<string, unknown>> = ResultType<{
 export default function useDoc<Content extends Record<string, unknown>>(
   id: PouchDB.Core.DocumentId,
   options?: (PouchDB.Core.GetOptions & CommonOptions) | null,
-  initialValue?: (() => Content) | Content
+  initialValue?: (() => Content) | Content,
 ): DocResultType<Content> {
   type Document = (PouchDB.Core.Document<Content> & PouchDB.Core.GetMeta) | null
 
@@ -98,7 +98,7 @@ export default function useDoc<Content extends Record<string, unknown>>(
                 [doc as Record<string, unknown>],
                 populate,
                 { pouchdb: pouch, subscriptionManager },
-                { maxDepth: options?.maxDepth }
+                { maxDepth: options?.maxDepth },
               )
               dispatch({
                 type: 'loading_finished',
@@ -156,7 +156,7 @@ export default function useDoc<Content extends Record<string, unknown>>(
                   [docToDispatch as Record<string, unknown>],
                   populate,
                   { pouchdb: pouch, subscriptionManager },
-                  { maxDepth: options?.maxDepth }
+                  { maxDepth: options?.maxDepth },
                 )
                   .then(populatedDocs => {
                     if (isMounted) {

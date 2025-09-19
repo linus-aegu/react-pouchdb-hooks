@@ -212,7 +212,7 @@ describe('options', () => {
       {
         initialProps: false,
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForNextUpdate(result)
@@ -264,7 +264,7 @@ describe('options', () => {
         test: 'conflict',
         type: 'tester',
       },
-      { force: true }
+      { force: true },
     )
 
     const { result, rerender } = renderHook(
@@ -272,7 +272,7 @@ describe('options', () => {
       {
         initialProps: false,
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForNextUpdate(result)
@@ -288,7 +288,7 @@ describe('options', () => {
     expect(result.current.rows[0].doc?._conflicts).toEqual(
       result.current.rows[0].doc?._rev === updateResult.rev
         ? [conflictResult.rev]
-        : [updateResult.rev]
+        : [updateResult.rev],
     )
     expect(result.current.rows[1].doc?._conflicts).toBeUndefined()
   })
@@ -313,14 +313,16 @@ describe('options', () => {
       {
         initialProps: false,
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForNextUpdate(result)
 
     expect(result.current.state).toBe('done')
     expect(
-      (result.current.rows[0].doc as DocWithAttachment)._attachments['info.txt']
+      (result.current.rows[0].doc as DocWithAttachment)._attachments[
+        'info.txt'
+      ],
     ).toEqual({
       content_type: 'text/plain',
       digest: 'md5-knhR9rrbyHqrdPJYmv/iAg==',
@@ -335,7 +337,9 @@ describe('options', () => {
 
     expect(result.current.state).toBe('done')
     expect(
-      (result.current.rows[0].doc as DocWithAttachment)._attachments['info.txt']
+      (result.current.rows[0].doc as DocWithAttachment)._attachments[
+        'info.txt'
+      ],
     ).toEqual({
       content_type: 'text/plain',
       data: 'SXMgdGhlcmUgbGlmZSBvbiBNYXJzPwo=',
@@ -370,14 +374,16 @@ describe('options', () => {
       {
         initialProps: false,
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForNextUpdate(result)
 
     expect(result.current.state).toBe('done')
     expect(
-      (result.current.rows[0].doc as DocWithAttachment)._attachments['info.txt']
+      (result.current.rows[0].doc as DocWithAttachment)._attachments[
+        'info.txt'
+      ],
     ).toEqual({
       content_type: 'text/plain',
       data: 'SXMgdGhlcmUgbGlmZSBvbiBNYXJzPwo=',
@@ -390,14 +396,15 @@ describe('options', () => {
     await waitForNextUpdate(result)
 
     expect(result.current.state).toBe('done')
-    expect(
-      (result.current.rows[0].doc as DocWithAttachment)._attachments['info.txt']
-    ).toEqual({
-      content_type: 'text/plain',
-      data: Buffer.from('Is there life on Mars?\n'),
-      digest: 'md5-knhR9rrbyHqrdPJYmv/iAg==',
-      revpos: 1,
-    })
+    const attachment = (result.current.rows[0].doc as DocWithAttachment)
+      ._attachments['info.txt']
+    expect(attachment.content_type).toBe('text/plain')
+    expect(attachment.digest).toBe('md5-knhR9rrbyHqrdPJYmv/iAg==')
+    expect(attachment.revpos).toBe(1)
+    expect(Buffer.isBuffer(attachment.data)).toBe(true)
+    expect((attachment.data as Buffer).toString()).toBe(
+      'Is there life on Mars?\n',
+    )
   })
 
   test('should handle the startkey option', async () => {
@@ -411,7 +418,7 @@ describe('options', () => {
       {
         initialProps: 'b',
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForNextUpdate(result)
@@ -457,7 +464,7 @@ describe('options', () => {
       {
         initialProps: 'x',
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForNextUpdate(result)
@@ -500,7 +507,7 @@ describe('options', () => {
       {
         initialProps: true,
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForNextUpdate(result)
@@ -543,7 +550,7 @@ describe('options', () => {
       {
         initialProps: 1,
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForNextUpdate(result)
@@ -575,7 +582,7 @@ describe('options', () => {
       {
         initialProps: 1,
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForNextUpdate(result)
@@ -617,7 +624,7 @@ describe('options', () => {
       {
         initialProps: false,
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForNextUpdate(result)
@@ -685,7 +692,7 @@ describe('options', () => {
       {
         initialProps: 'a',
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForNextUpdate(result)
@@ -729,7 +736,7 @@ describe('options', () => {
       {
         initialProps: ['a'],
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForNextUpdate(result)
@@ -774,7 +781,7 @@ describe('options', () => {
       {
         initialProps: ['a'],
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForNextUpdate(result)
@@ -800,7 +807,7 @@ describe('options', () => {
       {
         initialProps: false,
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForNextUpdate(result)
@@ -835,7 +842,7 @@ describe('options', () => {
         initialProps: undefined,
         main: myPouch,
         other: other,
-      }
+      },
     )
 
     await waitForNextUpdate(result)
@@ -1007,7 +1014,7 @@ describe('populate functionality', () => {
           endkey: 'post_\ufff0',
           populate: populateConfig,
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -1050,7 +1057,7 @@ describe('populate functionality', () => {
           startkey: 'post_',
           endkey: 'post_\ufff0',
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -1077,7 +1084,7 @@ describe('populate functionality', () => {
           endkey: 'post_\ufff0',
           populate: populateConfig,
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -1113,7 +1120,7 @@ describe('populate functionality', () => {
           endkey: 'post_3',
           populate: populateConfig,
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -1147,7 +1154,7 @@ describe('populate functionality', () => {
           keys: ['post_1', 'post_2'],
           populate: populateConfig,
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -1191,7 +1198,7 @@ describe('populate functionality', () => {
           endkey: 'post_3',
           populate: populateConfig,
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -1247,7 +1254,7 @@ describe('populate functionality', () => {
           endkey: 'post_4',
           populate: populateConfig,
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)

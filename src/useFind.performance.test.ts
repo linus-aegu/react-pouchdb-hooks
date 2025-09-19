@@ -51,7 +51,7 @@ describe('useFind Performance', () => {
 
         return hookResult
       },
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     // Wait for loading to complete
@@ -83,7 +83,7 @@ describe('useFind Performance', () => {
 
     const { result, rerender } = renderHook(
       () => useFind({ selector: { type: 'test' } }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForLoadingChange(result, false)
@@ -104,7 +104,7 @@ describe('useFind Performance', () => {
     expect(
       dataIsIdentical
         ? firstResult === secondResult
-        : firstResult !== secondResult
+        : firstResult !== secondResult,
     ).toBe(true)
   })
 
@@ -125,7 +125,7 @@ describe('useFind Performance', () => {
       {
         initialProps: 'test',
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -151,7 +151,7 @@ describe('useFind Performance', () => {
           sort: ['_id'],
         })
       },
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForLoadingChange(result, false)

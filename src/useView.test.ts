@@ -254,7 +254,7 @@ describe('temporary function only views', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -304,7 +304,7 @@ describe('temporary function only views', () => {
           test: 'conflict',
           type: 'tester',
         },
-        { force: true }
+        { force: true },
       )
 
       const view: TempView = (doc, emit) => {
@@ -319,7 +319,7 @@ describe('temporary function only views', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -335,7 +335,7 @@ describe('temporary function only views', () => {
       expect(result.current.rows[0].doc?._conflicts).toEqual(
         result.current.rows[0].doc?._rev === updateResult.rev
           ? [conflictResult.rev]
-          : [updateResult.rev]
+          : [updateResult.rev],
       )
     })
 
@@ -367,7 +367,7 @@ describe('temporary function only views', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -376,7 +376,7 @@ describe('temporary function only views', () => {
       expect(
         (result.current.rows[0].doc as DocWithAttachment)._attachments[
           'info.txt'
-        ]
+        ],
       ).toEqual({
         content_type: 'text/plain',
         digest: 'md5-knhR9rrbyHqrdPJYmv/iAg==',
@@ -393,7 +393,7 @@ describe('temporary function only views', () => {
       expect(
         (result.current.rows[0].doc as DocWithAttachment)._attachments[
           'info.txt'
-        ]
+        ],
       ).toEqual({
         content_type: 'text/plain',
         data: 'SXMgdGhlcmUgbGlmZSBvbiBNYXJzPwo=',
@@ -430,7 +430,7 @@ describe('temporary function only views', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -439,7 +439,7 @@ describe('temporary function only views', () => {
       expect(
         (result.current.rows[0].doc as DocWithAttachment)._attachments[
           'info.txt'
-        ]
+        ],
       ).toEqual({
         content_type: 'text/plain',
         data: 'SXMgdGhlcmUgbGlmZSBvbiBNYXJzPwo=',
@@ -452,16 +452,15 @@ describe('temporary function only views', () => {
       await waitForNextUpdate(result)
 
       expect(result.current.state).toBe('done')
-      expect(
-        (result.current.rows[0].doc as DocWithAttachment)._attachments[
-          'info.txt'
-        ]
-      ).toEqual({
-        content_type: 'text/plain',
-        data: Buffer.from('Is there life on Mars?\n'),
-        digest: 'md5-knhR9rrbyHqrdPJYmv/iAg==',
-        revpos: 1,
-      })
+      const attachment = (result.current.rows[0].doc as DocWithAttachment)
+        ._attachments['info.txt']
+      expect(attachment.content_type).toBe('text/plain')
+      expect(attachment.digest).toBe('md5-knhR9rrbyHqrdPJYmv/iAg==')
+      expect(attachment.revpos).toBe(1)
+      expect(Buffer.isBuffer(attachment.data)).toBe(true)
+      expect((attachment.data as Buffer).toString()).toBe(
+        'Is there life on Mars?\n',
+      )
     })
 
     test('should handle the startkey option', async () => {
@@ -482,7 +481,7 @@ describe('temporary function only views', () => {
         {
           initialProps: 'x',
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -521,7 +520,7 @@ describe('temporary function only views', () => {
         {
           initialProps: 'value\uffff',
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -561,7 +560,7 @@ describe('temporary function only views', () => {
             endkey: ['c'] as [string | Record<string, unknown>],
           },
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -627,7 +626,7 @@ describe('temporary function only views', () => {
         {
           initialProps: true,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -666,7 +665,7 @@ describe('temporary function only views', () => {
         {
           initialProps: 1,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -705,7 +704,7 @@ describe('temporary function only views', () => {
         {
           initialProps: 1,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -741,7 +740,7 @@ describe('temporary function only views', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -781,7 +780,7 @@ describe('temporary function only views', () => {
         {
           initialProps: 'value',
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -819,7 +818,7 @@ describe('temporary function only views', () => {
         {
           initialProps: ['value'],
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -860,7 +859,7 @@ describe('temporary function only views', () => {
             key: ['b', 'other'],
           },
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -948,7 +947,7 @@ describe('temporary function only views', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -991,7 +990,7 @@ describe('temporary function only views', () => {
           initialProps: undefined,
           main: myPouch,
           other: other,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -1275,7 +1274,7 @@ describe('temporary views objects', () => {
         {
           initialProps: true,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -1313,7 +1312,7 @@ describe('temporary views objects', () => {
         {
           initialProps: true,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -1405,7 +1404,7 @@ describe('temporary views objects', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -1455,7 +1454,7 @@ describe('temporary views objects', () => {
           test: 'conflict',
           type: 'tester',
         },
-        { force: true }
+        { force: true },
       )
 
       const view: TempViewDoc = {
@@ -1472,7 +1471,7 @@ describe('temporary views objects', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -1488,7 +1487,7 @@ describe('temporary views objects', () => {
       expect(result.current.rows[0].doc?._conflicts).toEqual(
         result.current.rows[0].doc?._rev === updateResult.rev
           ? [conflictResult.rev]
-          : [updateResult.rev]
+          : [updateResult.rev],
       )
     })
 
@@ -1522,7 +1521,7 @@ describe('temporary views objects', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -1531,7 +1530,7 @@ describe('temporary views objects', () => {
       expect(
         (result.current.rows[0].doc as DocWithAttachment)._attachments[
           'info.txt'
-        ]
+        ],
       ).toEqual({
         content_type: 'text/plain',
         digest: 'md5-knhR9rrbyHqrdPJYmv/iAg==',
@@ -1548,7 +1547,7 @@ describe('temporary views objects', () => {
       expect(
         (result.current.rows[0].doc as DocWithAttachment)._attachments[
           'info.txt'
-        ]
+        ],
       ).toEqual({
         content_type: 'text/plain',
         data: 'SXMgdGhlcmUgbGlmZSBvbiBNYXJzPwo=',
@@ -1587,7 +1586,7 @@ describe('temporary views objects', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -1596,7 +1595,7 @@ describe('temporary views objects', () => {
       expect(
         (result.current.rows[0].doc as DocWithAttachment)._attachments[
           'info.txt'
-        ]
+        ],
       ).toEqual({
         content_type: 'text/plain',
         data: 'SXMgdGhlcmUgbGlmZSBvbiBNYXJzPwo=',
@@ -1609,16 +1608,15 @@ describe('temporary views objects', () => {
       await waitForNextUpdate(result)
 
       expect(result.current.state).toBe('done')
-      expect(
-        (result.current.rows[0].doc as DocWithAttachment)._attachments[
-          'info.txt'
-        ]
-      ).toEqual({
-        content_type: 'text/plain',
-        data: Buffer.from('Is there life on Mars?\n'),
-        digest: 'md5-knhR9rrbyHqrdPJYmv/iAg==',
-        revpos: 1,
-      })
+      const attachment = (result.current.rows[0].doc as DocWithAttachment)
+        ._attachments['info.txt']
+      expect(attachment.content_type).toBe('text/plain')
+      expect(attachment.digest).toBe('md5-knhR9rrbyHqrdPJYmv/iAg==')
+      expect(attachment.revpos).toBe(1)
+      expect(Buffer.isBuffer(attachment.data)).toBe(true)
+      expect((attachment.data as Buffer).toString()).toBe(
+        'Is there life on Mars?\n',
+      )
     })
 
     test('should handle the startkey option', async () => {
@@ -1641,7 +1639,7 @@ describe('temporary views objects', () => {
         {
           initialProps: 'x',
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -1682,7 +1680,7 @@ describe('temporary views objects', () => {
         {
           initialProps: 'value\uffff',
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -1724,7 +1722,7 @@ describe('temporary views objects', () => {
             endkey: ['c'] as [string | Record<string, unknown>],
           },
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -1792,7 +1790,7 @@ describe('temporary views objects', () => {
         {
           initialProps: true,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -1833,7 +1831,7 @@ describe('temporary views objects', () => {
         {
           initialProps: 1,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -1874,7 +1872,7 @@ describe('temporary views objects', () => {
         {
           initialProps: 1,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -1912,7 +1910,7 @@ describe('temporary views objects', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -1954,7 +1952,7 @@ describe('temporary views objects', () => {
         {
           initialProps: 'value',
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -1994,7 +1992,7 @@ describe('temporary views objects', () => {
         {
           initialProps: ['value'],
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -2036,7 +2034,7 @@ describe('temporary views objects', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -2076,7 +2074,7 @@ describe('temporary views objects', () => {
         {
           initialProps: 1,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -2117,7 +2115,7 @@ describe('temporary views objects', () => {
             key: ['b', 'other'],
           },
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -2207,7 +2205,7 @@ describe('temporary views objects', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -2252,7 +2250,7 @@ describe('temporary views objects', () => {
           initialProps: undefined,
           main: myPouch,
           other: other,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -2653,7 +2651,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit(doc.test, 42)
@@ -2671,7 +2669,7 @@ describe('design documents', () => {
         {
           initialProps: true,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -2700,7 +2698,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit(doc.test, 42)
@@ -2718,7 +2716,7 @@ describe('design documents', () => {
         {
           initialProps: true,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -2802,7 +2800,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit(doc.test, 42)
@@ -2819,7 +2817,7 @@ describe('design documents', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -2869,7 +2867,7 @@ describe('design documents', () => {
           test: 'conflict',
           type: 'tester',
         },
-        { force: true }
+        { force: true },
       )
 
       const ddoc = {
@@ -2877,7 +2875,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit(doc.test, 42)
@@ -2895,7 +2893,7 @@ describe('design documents', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -2911,7 +2909,7 @@ describe('design documents', () => {
       expect(result.current.rows[0].doc?._conflicts).toEqual(
         result.current.rows[0].doc?._rev === updateResult.rev
           ? [conflictResult.rev]
-          : [updateResult.rev]
+          : [updateResult.rev],
       )
     })
 
@@ -2936,7 +2934,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit(doc.test, 42)
@@ -2954,7 +2952,7 @@ describe('design documents', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -2963,7 +2961,7 @@ describe('design documents', () => {
       expect(
         (result.current.rows[0].doc as DocWithAttachment)._attachments[
           'info.txt'
-        ]
+        ],
       ).toEqual({
         content_type: 'text/plain',
         digest: 'md5-knhR9rrbyHqrdPJYmv/iAg==',
@@ -2980,7 +2978,7 @@ describe('design documents', () => {
       expect(
         (result.current.rows[0].doc as DocWithAttachment)._attachments[
           'info.txt'
-        ]
+        ],
       ).toEqual({
         content_type: 'text/plain',
         data: 'SXMgdGhlcmUgbGlmZSBvbiBNYXJzPwo=',
@@ -3010,7 +3008,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit(doc.test, 42)
@@ -3032,7 +3030,7 @@ describe('design documents', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -3041,7 +3039,7 @@ describe('design documents', () => {
       expect(
         (result.current.rows[0].doc as DocWithAttachment)._attachments[
           'info.txt'
-        ]
+        ],
       ).toEqual({
         content_type: 'text/plain',
         data: 'SXMgdGhlcmUgbGlmZSBvbiBNYXJzPwo=',
@@ -3054,16 +3052,15 @@ describe('design documents', () => {
       await waitForNextUpdate(result)
 
       expect(result.current.state).toBe('done')
-      expect(
-        (result.current.rows[0].doc as DocWithAttachment)._attachments[
-          'info.txt'
-        ]
-      ).toEqual({
-        content_type: 'text/plain',
-        data: Buffer.from('Is there life on Mars?\n'),
-        digest: 'md5-knhR9rrbyHqrdPJYmv/iAg==',
-        revpos: 1,
-      })
+      const attachment = (result.current.rows[0].doc as DocWithAttachment)
+        ._attachments['info.txt']
+      expect(attachment.content_type).toBe('text/plain')
+      expect(attachment.digest).toBe('md5-knhR9rrbyHqrdPJYmv/iAg==')
+      expect(attachment.revpos).toBe(1)
+      expect(Buffer.isBuffer(attachment.data)).toBe(true)
+      expect((attachment.data as Buffer).toString()).toBe(
+        'Is there life on Mars?\n',
+      )
     })
 
     test('should handle the startkey option', async () => {
@@ -3078,7 +3075,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit(doc.test, 42)
@@ -3095,7 +3092,7 @@ describe('design documents', () => {
         {
           initialProps: 'x',
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -3128,7 +3125,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit(doc.test, 42)
@@ -3145,7 +3142,7 @@ describe('design documents', () => {
         {
           initialProps: 'value\uffff',
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -3175,7 +3172,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit([doc._id, doc.test], 42)
@@ -3196,7 +3193,7 @@ describe('design documents', () => {
             endkey: ['c'] as [string | Record<string, unknown>],
           },
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -3255,7 +3252,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit(doc.test, 42)
@@ -3273,7 +3270,7 @@ describe('design documents', () => {
         {
           initialProps: true,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -3306,7 +3303,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit(doc.test, 42)
@@ -3323,7 +3320,7 @@ describe('design documents', () => {
         {
           initialProps: 1,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -3356,7 +3353,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit(doc.test, 42)
@@ -3373,7 +3370,7 @@ describe('design documents', () => {
         {
           initialProps: 1,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -3403,7 +3400,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit(doc.test, 42)
@@ -3420,7 +3417,7 @@ describe('design documents', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -3454,7 +3451,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit(doc.test, 42)
@@ -3471,7 +3468,7 @@ describe('design documents', () => {
         {
           initialProps: 'value',
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -3503,7 +3500,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit(doc.test, 42)
@@ -3520,7 +3517,7 @@ describe('design documents', () => {
         {
           initialProps: ['value'],
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -3553,7 +3550,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit(doc.test, 42)
@@ -3571,7 +3568,7 @@ describe('design documents', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -3602,7 +3599,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit([13, doc.test], 42)
@@ -3620,7 +3617,7 @@ describe('design documents', () => {
         {
           initialProps: 1,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -3651,7 +3648,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit([doc._id, doc.test], 42)
@@ -3671,7 +3668,7 @@ describe('design documents', () => {
             key: ['b', 'other'],
           },
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -3753,7 +3750,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit([doc._id, doc.test], 42)
@@ -3770,7 +3767,7 @@ describe('design documents', () => {
         {
           initialProps: false,
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -3797,7 +3794,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit([doc._id, doc.test], 42)
@@ -3819,7 +3816,7 @@ describe('design documents', () => {
         {
           initialProps: 'ok',
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -3844,7 +3841,7 @@ describe('design documents', () => {
         views: {
           test: {
             map: function (
-              doc: PouchDB.Core.Document<Record<string, unknown>>
+              doc: PouchDB.Core.Document<Record<string, unknown>>,
             ) {
               if (doc.type === 'tester') {
                 emit(doc.type, doc.value)
@@ -3878,7 +3875,7 @@ describe('design documents', () => {
           initialProps: undefined,
           main: myPouch,
           other: other,
-        }
+        },
       )
 
       await waitForNextUpdate(result)
@@ -3983,7 +3980,7 @@ describe('populate integration', () => {
           include_docs: true,
           populate: { site_id: { as: 'site' } },
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -4058,7 +4055,7 @@ describe('populate integration', () => {
             author_id: { as: 'author' },
           },
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -4125,7 +4122,7 @@ describe('populate integration', () => {
           include_docs: true,
           populate: { site_id: { as: 'site' } },
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -4183,7 +4180,7 @@ describe('populate integration', () => {
         useView('posts/published', {
           populate: { site_id: { as: 'site' } }, // Should be ignored without include_docs
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -4226,7 +4223,7 @@ describe('populate integration', () => {
           include_docs: true,
           populate: { site_id: { as: 'site' } },
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -4292,7 +4289,7 @@ describe('populate integration', () => {
             author_id: { as: 'author' },
           },
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -4365,7 +4362,7 @@ describe('populate integration', () => {
           include_docs: true,
           populate: { site_id: { as: 'site' } },
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -4428,7 +4425,7 @@ describe('populate integration', () => {
           include_docs: true,
           populate: { ref_id: { as: 'reference' } },
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)

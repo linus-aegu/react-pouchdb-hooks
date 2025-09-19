@@ -7,7 +7,7 @@ interface MockSubscriptionManager {
   subscribeToDocs: jest.MockedFunction<
     (
       keys: string[] | null,
-      callback: (deleted: boolean, id: string, doc?: unknown) => void
+      callback: (deleted: boolean, id: string, doc?: unknown) => void,
     ) => () => void
   >
   subscribeToView: jest.MockedFunction<
@@ -201,7 +201,7 @@ describe('populateDocuments Performance Tests', () => {
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     expect((result[0] as Record<string, unknown>).site).toBeDefined()
@@ -244,7 +244,7 @@ describe('populateDocuments Performance Tests', () => {
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     expect((result[0] as Record<string, unknown>).site).toBeDefined()
@@ -255,7 +255,7 @@ describe('populateDocuments Performance Tests', () => {
     const secondResult = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
     const secondSiteRef = (secondResult[0] as Record<string, unknown>).site
 
@@ -428,7 +428,7 @@ describe('populateDocuments Performance Tests', () => {
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     expect((result[0] as Record<string, unknown>).site).toBeDefined()

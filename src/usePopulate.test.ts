@@ -7,7 +7,7 @@ interface MockSubscriptionManager {
   subscribeToDocs: jest.MockedFunction<
     (
       keys: string[] | null,
-      callback: (deleted: boolean, id: string, doc?: unknown) => void
+      callback: (deleted: boolean, id: string, doc?: unknown) => void,
     ) => () => void
   >
   subscribeToView: jest.MockedFunction<
@@ -161,7 +161,7 @@ describe('populateDocuments', () => {
       const result = await populateDocuments(
         documents,
         populateConfig,
-        mockContext
+        mockContext,
       )
 
       expect(result).toHaveLength(1)
@@ -194,7 +194,7 @@ describe('populateDocuments', () => {
       const result = await populateDocuments(
         documents,
         populateConfig,
-        mockContext
+        mockContext,
       )
 
       expect(result).toHaveLength(1)
@@ -242,7 +242,7 @@ describe('populateDocuments', () => {
       const result = await populateDocuments(
         documents,
         populateConfig,
-        mockContext
+        mockContext,
       )
 
       expect(result).toHaveLength(2)
@@ -279,7 +279,7 @@ describe('populateDocuments', () => {
       const result = await populateDocuments(
         documents,
         populateConfig,
-        mockContext
+        mockContext,
       )
 
       expect(result).toHaveLength(1)
@@ -316,7 +316,7 @@ describe('populateDocuments', () => {
       const result = await populateDocuments(
         documents,
         populateConfig,
-        mockErrorContext as typeof mockContext
+        mockErrorContext as typeof mockContext,
       )
 
       // Should return original documents on error
@@ -343,7 +343,7 @@ describe('populateDocuments', () => {
       const result = await populateDocuments(
         documents,
         populateConfig,
-        mockContext
+        mockContext,
       )
 
       expect(result).toHaveLength(1)
@@ -382,7 +382,7 @@ describe('populateDocuments', () => {
       const result = await populateDocuments(
         documents,
         populateConfig,
-        mockContext
+        mockContext,
       )
 
       expect(result).toHaveLength(1)
@@ -418,7 +418,7 @@ describe('populateDocuments', () => {
       const result = await populateDocuments(
         documents,
         populateConfig,
-        mockContext
+        mockContext,
       )
 
       expect(result).toHaveLength(1)
@@ -465,7 +465,7 @@ describe('populateDocuments', () => {
       // Should include all reference IDs in a single call
       const callArgs = allDocsSpy.mock.calls[0][0]
       expect(callArgs.keys).toEqual(
-        expect.arrayContaining(['site_1', 'site_2', 'user_1', 'user_2'])
+        expect.arrayContaining(['site_1', 'site_2', 'user_1', 'user_2']),
       )
       expect(callArgs.include_docs).toBe(true)
     })
@@ -501,7 +501,7 @@ describe('populateDocuments', () => {
 
       // Check that site_1 is only fetched once
       const siteCalls = allDocsSpy.mock.calls.filter(call =>
-        call[0].keys?.includes('site_1')
+        call[0].keys?.includes('site_1'),
       )
       expect(siteCalls).toHaveLength(1)
 
@@ -537,7 +537,7 @@ describe('populateDocuments', () => {
       await populateDocuments(documents, populateConfig, mockContext)
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/Populate \[site_id\] took \d+ms for 1 docs/)
+        expect.stringMatching(/Populate \[site_id\] took \d+ms for 1 docs/),
       )
 
       consoleSpy.mockRestore()
@@ -568,7 +568,7 @@ describe('populateDocuments', () => {
       await populateDocuments(documents, populateConfig, mockContext)
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        'Populate: Reference not found for site_id: nonexistent_site'
+        'Populate: Reference not found for site_id: nonexistent_site',
       )
 
       consoleSpy.mockRestore()
@@ -632,13 +632,13 @@ describe('Recursive/Nested Populate Tests', () => {
           })
         }
         return Promise.resolve({ rows: [] })
-      }
+      },
     )
 
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     expect(result).toHaveLength(1)
@@ -694,13 +694,13 @@ describe('Recursive/Nested Populate Tests', () => {
           return Promise.resolve({ rows: [{ doc: profileDoc }] })
         }
         return Promise.resolve({ rows: [] })
-      }
+      },
     )
 
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     expect(result).toHaveLength(1)
@@ -747,14 +747,14 @@ describe('Recursive/Nested Populate Tests', () => {
           return Promise.resolve({ rows: [{ doc: ownerDoc }] })
         }
         return Promise.resolve({ rows: [] })
-      }
+      },
     )
 
     const result = await populateDocuments(
       documents,
       populateConfig,
       mockContext,
-      { maxDepth: 2 }
+      { maxDepth: 2 },
     )
 
     expect(result).toHaveLength(1)
@@ -791,13 +791,13 @@ describe('Recursive/Nested Populate Tests', () => {
           return Promise.resolve({ rows: [{ doc: documents[0] }] })
         }
         return Promise.resolve({ rows: [] })
-      }
+      },
     )
 
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     expect(result).toHaveLength(1)
@@ -854,13 +854,13 @@ describe('Recursive/Nested Populate Tests', () => {
         if (options.keys.includes('owner_1')) docs.push({ doc: ownerDoc })
         if (options.keys.includes('profile_1')) docs.push({ doc: profileDoc })
         return Promise.resolve({ rows: docs })
-      }
+      },
     )
 
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     expect(result).toHaveLength(1)
@@ -897,13 +897,13 @@ describe('Recursive/Nested Populate Tests', () => {
           return Promise.resolve({ rows: [{ error: 'not_found' }] })
         }
         return Promise.resolve({ rows: [] })
-      }
+      },
     )
 
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     expect(result).toHaveLength(1)
@@ -946,18 +946,18 @@ describe('Recursive/Nested Populate Tests', () => {
           return Promise.resolve({ rows: [{ doc: ownerDoc }] })
         }
         return Promise.resolve({ rows: [] })
-      }
+      },
     )
 
     await populateDocuments(documents, populateConfig, mockContext)
 
     expect(logSpy).toHaveBeenCalledWith(
       expect.stringMatching(
-        /Populate \[owner_id\] took \d+ms for 1 docs \(depth 1\)/
-      )
+        /Populate \[owner_id\] took \d+ms for 1 docs \(depth 1\)/,
+      ),
     )
     expect(logSpy).toHaveBeenCalledWith(
-      expect.stringMatching(/Populate \[site_id\] took \d+ms for 1 docs$/)
+      expect.stringMatching(/Populate \[site_id\] took \d+ms for 1 docs$/),
     )
 
     logSpy.mockRestore()
@@ -1015,7 +1015,7 @@ describe('Nested Field Path Population', () => {
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     expect(result).toHaveLength(1)
@@ -1058,7 +1058,7 @@ describe('Nested Field Path Population', () => {
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     expect(result).toHaveLength(1)
@@ -1108,7 +1108,7 @@ describe('Nested Field Path Population', () => {
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     // Should result in order.cultivar = { _id: "4A", name: "Mandevilla hybrid", ... }
@@ -1149,7 +1149,7 @@ describe('Nested Field Path Population', () => {
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     expect(result).toHaveLength(1)
@@ -1187,7 +1187,7 @@ describe('Nested Field Path Population', () => {
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     expect(result).toHaveLength(1)
@@ -1219,7 +1219,7 @@ describe('Nested Field Path Population', () => {
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     // Should not crash, just skip population
@@ -1243,7 +1243,7 @@ describe('Nested Field Path Population', () => {
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     // Should not crash, just skip population
@@ -1283,7 +1283,7 @@ describe('Nested Field Path Population', () => {
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     expect(result).toHaveLength(1)
@@ -1335,7 +1335,7 @@ describe('Nested Field Path Population', () => {
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     expect(result).toHaveLength(1)
@@ -1396,7 +1396,7 @@ describe('Nested Field Path Population', () => {
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     expect(result).toHaveLength(1)
@@ -1428,7 +1428,7 @@ describe('Nested Field Path Population', () => {
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     expect(result).toHaveLength(1)
@@ -1453,7 +1453,7 @@ describe('Nested Field Path Population', () => {
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     expect(result).toHaveLength(1)
@@ -1488,7 +1488,7 @@ describe('Nested Field Path Population', () => {
     const result = await populateDocuments(
       documents,
       populateConfig,
-      mockContext
+      mockContext,
     )
 
     const order = result[0] as any

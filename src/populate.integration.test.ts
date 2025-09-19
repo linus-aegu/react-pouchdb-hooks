@@ -161,7 +161,7 @@ describe('Populate Integration Tests', () => {
       // Test useDoc
       const { result: docResult } = renderHook(
         () => useDoc<TestPost>('post_1', { populate: populateConfig }),
-        { pouchdb: db }
+        { pouchdb: db },
       )
 
       await waitForNextUpdate(docResult)
@@ -182,7 +182,7 @@ describe('Populate Integration Tests', () => {
             endkey: 'post_1',
             populate: populateConfig,
           }),
-        { pouchdb: db }
+        { pouchdb: db },
       )
 
       await waitForNextUpdate(allDocsResult)
@@ -208,7 +208,7 @@ describe('Populate Integration Tests', () => {
             selector: { type: 'post', _id: 'post_1' },
             populate: populateConfig,
           }),
-        { pouchdb: db }
+        { pouchdb: db },
       )
 
       await waitForNextUpdate(findResult)
@@ -234,7 +234,7 @@ describe('Populate Integration Tests', () => {
             include_docs: true,
             populate: populateConfig,
           }),
-        { pouchdb: db }
+        { pouchdb: db },
       )
 
       await waitForNextUpdate(viewResult)
@@ -261,7 +261,7 @@ describe('Populate Integration Tests', () => {
             include_docs: true,
             populate: populateConfig,
           }),
-        { pouchdb: db }
+        { pouchdb: db },
       )
 
       await waitForNextUpdate(viewResult)
@@ -301,7 +301,7 @@ describe('Populate Integration Tests', () => {
       // Test that multiple hooks can use populate successfully
       const { result: docResult1 } = renderHook(
         () => useDoc<TestPost>('post_1', { populate: populateConfig }),
-        { pouchdb: db }
+        { pouchdb: db },
       )
 
       await waitForNextUpdate(docResult1)
@@ -314,7 +314,7 @@ describe('Populate Integration Tests', () => {
       // Test that a second hook also works with populate
       const { result: docResult2 } = renderHook(
         () => useDoc<TestPost>('post_3', { populate: populateConfig }),
-        { pouchdb: db }
+        { pouchdb: db },
       )
 
       await waitForNextUpdate(docResult2)
@@ -339,7 +339,7 @@ describe('Populate Integration Tests', () => {
       // Test with useDoc
       const { result: docResult } = renderHook(
         () => useDoc<TestPost>('post_1', { populate: populateConfig }),
-        { pouchdb: db }
+        { pouchdb: db },
       )
 
       await waitForNextUpdate(docResult)
@@ -360,7 +360,7 @@ describe('Populate Integration Tests', () => {
             selector: { type: 'post', _id: 'post_1' },
             populate: populateConfig,
           }),
-        { pouchdb: db }
+        { pouchdb: db },
       )
 
       await waitForNextUpdate(findResult)
@@ -393,7 +393,7 @@ describe('Populate Integration Tests', () => {
             selector: { type: 'post' },
             populate: blogPopulateConfig,
           }),
-        { pouchdb: db }
+        { pouchdb: db },
       )
 
       await waitForNextUpdate(result)
@@ -428,7 +428,7 @@ describe('Populate Integration Tests', () => {
       // Start with useDoc
       const { result: docResult } = renderHook(
         () => useDoc<TestPost>('post_1', { populate: populateConfig }),
-        { pouchdb: db }
+        { pouchdb: db },
       )
 
       await waitForNextUpdate(docResult)
@@ -450,7 +450,7 @@ describe('Populate Integration Tests', () => {
             selector: { type: 'post', _id: 'post_1' },
             populate: populateConfig,
           }),
-        { pouchdb: db }
+        { pouchdb: db },
       )
 
       await waitForNextUpdate(findResult)
@@ -470,7 +470,7 @@ describe('Populate Integration Tests', () => {
             selector: { type: 'post', _id: 'nonexistent' },
             populate: { site_id: { as: 'site' } },
           }),
-        { pouchdb: db }
+        { pouchdb: db },
       )
 
       await waitForNextUpdate(result)
@@ -491,7 +491,7 @@ describe('Populate Integration Tests', () => {
             title: `Large Post ${i}`,
             site_id: 'site_1',
             author_id: 'user_1',
-          } as TestPost)
+          }) as TestPost,
       )
 
       await db.bulkDocs(largeDocs)
@@ -508,10 +508,15 @@ describe('Populate Integration Tests', () => {
               author_id: { as: 'author' },
             },
           }),
-        { pouchdb: db }
+        { pouchdb: db },
       )
 
       await waitForNextUpdate(result)
+
+      // Wait for loading to complete if still in progress
+      if (result.current.state === 'loading') {
+        await waitForNextUpdate(result)
+      }
 
       const endTime = Date.now()
       const duration = endTime - startTime

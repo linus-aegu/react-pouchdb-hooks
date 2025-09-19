@@ -5,7 +5,7 @@ import { useReducer, useMemo, useCallback, useRef } from 'react'
  * @param initialValue Initial Value, can be any object or a function returning the value.
  */
 export default function useStateMachine<Result>(
-  initialValue: initValueType<Result>
+  initialValue: initValueType<Result>,
 ): StateMachineResultType<Result> {
   const [currentState, dispatch] = useReducer<
     reducerType<Result>,
@@ -34,7 +34,7 @@ export default function useStateMachine<Result>(
       // Add loading indicator
       loading: currentState.state === 'loading',
     }),
-    [currentState]
+    [currentState],
   )
 
   const stateRef = useRef(currentState)
@@ -55,7 +55,7 @@ export type QueryState = 'loading' | 'done' | 'error'
 
 type reducerType<Result> = (
   state: State & Result,
-  action: Actions<Result>
+  action: Actions<Result>,
 ) => State & Result
 
 interface State {
@@ -84,7 +84,7 @@ export type ResultType<T> = T &
 type StateMachineResultType<T> = [
   ResultType<T>,
   Dispatch<T>,
-  (fn: (state: T) => T) => void
+  (fn: (state: T) => T) => void,
 ]
 
 export interface StartLoading {
@@ -109,7 +109,7 @@ export type Actions<T> = StartLoading | FinishedLoading<T> | DidError<T>
 
 function reducer<Result>(
   state: State & Result,
-  action: Actions<Result>
+  action: Actions<Result>,
 ): State & Result {
   switch (action.type) {
     case 'loading_started':

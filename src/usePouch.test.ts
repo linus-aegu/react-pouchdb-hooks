@@ -33,7 +33,7 @@ test('should support the selection of a database in the context to be used', asy
       initialProps: undefined,
       main: myPouch,
       other,
-    }
+    },
   )
 
   // No db selection

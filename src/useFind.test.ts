@@ -63,7 +63,7 @@ describe('by id', () => {
         }),
       {
         pouchdb: myPouch,
-      }
+      },
     )
 
     expect(result.current.docs).toEqual([])
@@ -128,7 +128,7 @@ describe('by id', () => {
         }),
       {
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -171,7 +171,7 @@ describe('by id', () => {
         }),
       {
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -209,7 +209,7 @@ describe('by id', () => {
         }),
       {
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -242,7 +242,7 @@ describe('by id', () => {
         }),
       {
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -272,7 +272,7 @@ describe('by id', () => {
       {
         initialProps: 'DS9',
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForNextUpdate(result)
@@ -300,7 +300,7 @@ describe('by id', () => {
       {
         initialProps: { _id: { $gte: 'DS9' } },
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForNextUpdate(result)
@@ -336,7 +336,7 @@ describe('index', () => {
         }),
       {
         pouchdb: myPouch,
-      }
+      },
     )
 
     expect(result.current.loading).toBeTruthy()
@@ -399,7 +399,7 @@ describe('index', () => {
         }),
       {
         pouchdb: myPouch,
-      }
+      },
     )
 
     expect(result.current.loading).toBeTruthy()
@@ -459,7 +459,7 @@ describe('index', () => {
         }),
       {
         pouchdb: myPouch,
-      }
+      },
     )
 
     expect(result.current.loading).toBeTruthy()
@@ -492,7 +492,7 @@ describe('index', () => {
         }),
       {
         pouchdb: myPouch,
-      }
+      },
     )
 
     expect(result.current.loading).toBeTruthy()
@@ -517,7 +517,7 @@ describe('index', () => {
       {
         initialProps: undefined,
         pouchdb: myPouch,
-      }
+      },
     )
 
     expect(result.current.loading).toBeTruthy()
@@ -555,7 +555,7 @@ describe('index', () => {
         }),
       {
         pouchdb: myPouch,
-      }
+      },
     )
 
     expect(result.current.loading).toBeTruthy()
@@ -570,7 +570,7 @@ describe('index', () => {
     expect(ddoc.language).toBe('query')
     expect(typeof ddoc.views).toBe('object')
     expect(typeof (ddoc.views as Record<string, unknown>).captains).toBe(
-      'object'
+      'object',
     )
   })
 
@@ -591,7 +591,7 @@ describe('index', () => {
       {
         initialProps: ['captain'],
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -664,7 +664,7 @@ describe('index', () => {
       {
         initialProps: { ddoc: 'star_trek', name: 'captains' },
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -689,14 +689,14 @@ describe('index', () => {
     expect(result.current.loading).toBeFalsy()
     expect(result.current.docs).toHaveLength(5)
 
-    const starTrek = await myPouch.get<Record<string, Record<string, unknown>>>(
-      '_design/star_trek'
-    )
+    const starTrek =
+      await myPouch.get<Record<string, Record<string, unknown>>>(
+        '_design/star_trek',
+      )
     expect(Object.keys(starTrek.views)).toEqual(['captains', 'other'])
 
-    const starDDoc = await myPouch.get<Record<string, Record<string, unknown>>>(
-      '_design/star'
-    )
+    const starDDoc =
+      await myPouch.get<Record<string, Record<string, unknown>>>('_design/star')
     expect(Object.keys(starDDoc.views)).toEqual(['other'])
   })
 
@@ -716,7 +716,7 @@ describe('index', () => {
         }),
       {
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -769,7 +769,7 @@ describe('index', () => {
         }),
       {
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -810,7 +810,7 @@ describe('index', () => {
         }),
       {
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -848,7 +848,7 @@ describe('index', () => {
         }),
       {
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -883,7 +883,7 @@ describe('index', () => {
       {
         initialProps: null as null | string,
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -918,7 +918,7 @@ describe('index', () => {
           },
         },
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -955,7 +955,7 @@ describe('index', () => {
           captain: { $gt: null },
         },
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -996,7 +996,7 @@ describe('index', () => {
           }),
         {
           pouchdb: myPouch,
-        }
+        },
       )
 
       expect(result.current.loading).toBeTruthy()
@@ -1055,7 +1055,7 @@ describe('index', () => {
           }),
         {
           pouchdb: myPouch,
-        }
+        },
       )
 
       expect(result.current.loading).toBeTruthy()
@@ -1115,7 +1115,7 @@ describe('index', () => {
           }),
         {
           pouchdb: myPouch,
-        }
+        },
       )
 
       await waitForLoadingChange(result, false)
@@ -1131,6 +1131,8 @@ describe('index', () => {
         })
         await sleep(20)
       })
+
+      await waitForLoadingChange(result, false)
 
       expect(result.current.error).toBeFalsy()
       expect(result.current.loading).toBeFalsy()
@@ -1173,7 +1175,7 @@ describe('options', () => {
       {
         initialProps: ['captain'],
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -1216,7 +1218,7 @@ describe('options', () => {
         }),
       {
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -1252,7 +1254,7 @@ describe('options', () => {
       {
         initialProps: 4,
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -1292,7 +1294,7 @@ describe('options', () => {
       {
         initialProps: 4,
         pouchdb: myPouch,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -1350,7 +1352,7 @@ describe('options', () => {
         initialProps: undefined,
         main: myPouch,
         other: other,
-      }
+      },
     )
 
     await waitForLoadingChange(result, false)
@@ -1513,7 +1515,7 @@ describe('populate functionality', () => {
           sort: ['_id'],
           populate: populateConfig,
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -1551,7 +1553,7 @@ describe('populate functionality', () => {
           selector: { type: 'post', published: true },
           sort: ['_id'],
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -1588,7 +1590,7 @@ describe('populate functionality', () => {
           selector: { _id: 'post_4' },
           populate: populateConfig,
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -1623,7 +1625,7 @@ describe('populate functionality', () => {
           sort: ['_id'],
           populate: populateConfig,
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -1653,7 +1655,7 @@ describe('populate functionality', () => {
           selector: { _id: 'post_1' },
           populate: populateConfig,
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -1694,7 +1696,7 @@ describe('populate functionality', () => {
           sort: ['_id'],
           populate: populateConfig,
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -1743,7 +1745,7 @@ describe('populate functionality', () => {
           selector: { _id: 'post_5' },
           populate: populateConfig,
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
@@ -1778,7 +1780,7 @@ describe('populate functionality', () => {
           skip: 1,
           populate: populateConfig,
         }),
-      { pouchdb: myPouch }
+      { pouchdb: myPouch },
     )
 
     await waitForNextUpdate(result)
