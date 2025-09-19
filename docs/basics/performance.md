@@ -264,7 +264,7 @@ If you're seeing excessive renders:
        selector: { type: 'post' },
        sort: ['title'],
      }),
-     []
+     [],
    )
    ```
 

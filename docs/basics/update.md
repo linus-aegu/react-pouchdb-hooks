@@ -278,7 +278,7 @@ export default function TodoList() {
             type: 'todo',
             done: filter === filters.completed,
           },
-        }
+        },
   )
 
   // todos is now an array of the documents. You must use their _id field directly!

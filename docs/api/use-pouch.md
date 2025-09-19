@@ -111,7 +111,7 @@ export function useAddBooking() {
 
       return result
     },
-    [db]
+    [db],
   )
 }
 ```

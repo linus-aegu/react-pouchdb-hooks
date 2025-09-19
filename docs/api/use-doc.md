@@ -317,7 +317,7 @@ export function PostEditor({ postId }) {
       // Initial populated values
       author: { name: 'Loading...' },
       category: { name: 'Uncategorized' },
-    })
+    }),
   )
 
   if (error) {

@@ -86,7 +86,7 @@ ReactDOM.render(
   <Provider pouchdb={db}>
     <App />
   </Provider>,
-  document.getElementById('root')
+  document.getElementById('root'),
 )
 ```
 

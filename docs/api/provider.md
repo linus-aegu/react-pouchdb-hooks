@@ -93,7 +93,7 @@ ReactDOM.render(
   <Provider pouchdb={db}>
     <App />
   </Provider>,
-  document.getElementById('root')
+  document.getElementById('root'),
 )
 ```
 
@@ -132,7 +132,7 @@ ReactDOM.render(
   >
     <App />
   </Provider>,
-  document.getElementById('root')
+  document.getElementById('root'),
 )
 ```
 
@@ -175,7 +175,7 @@ ReactDOM.render(
       </Switch>
     </Router>
   </Provider>,
-  document.getElementById('root')
+  document.getElementById('root'),
 )
 ```
 
@@ -206,7 +206,7 @@ ReactDOM.render(
       <App />
     </PouchProvider>
   </Provider>,
-  document.getElementById('root')
+  document.getElementById('root'),
 )
 ```
 
@@ -238,7 +238,7 @@ ReactDOM.render(
       <UserMenu />
     </div>
   </Provider>,
-  document.getElementById('root')
+  document.getElementById('root'),
 )
 ```
 
@@ -292,7 +292,7 @@ ReactDOM.render(
   >
     <App />
   </Provider>,
-  document.getElementById('root')
+  document.getElementById('root'),
 )
 ```
 

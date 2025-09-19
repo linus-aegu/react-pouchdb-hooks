@@ -39,13 +39,11 @@ The library uses React Context to provide PouchDB database instances to componen
 ### Key Components
 
 1. **Provider (`src/context.tsx`)**: Wraps the app to provide database access
-
    - Manages PouchDB instances
    - Handles subscription management with batching support
    - Supports single or multiple databases
 
 2. **SubscriptionManager (`src/subscription.ts`)**: Central event handling
-
    - Batches change events for performance
    - Manages document and view subscriptions
    - Configurable batching delay and leading-edge triggers

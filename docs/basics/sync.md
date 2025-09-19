@@ -55,7 +55,7 @@ function getUserDatabaseName(name, prefix = 'userdb-') {
   const encoder = new TextEncoder()
   const buffy = encoder.encode(name)
   const bytes = Array.from(buffy).map(byte =>
-    byte.toString(16).padStart(2, '0')
+    byte.toString(16).padStart(2, '0'),
   )
   return prefix + bytes.join('')
 }
@@ -84,7 +84,7 @@ To access a remote database, create a new instance of PouchDB with a url-string 
 ```javascript
 const remoteDB = new PouchDB(
   `http://127.0.0.1:5984/${getUserDatabaseName(username)}`,
-  { skip_setup: true }
+  { skip_setup: true },
 )
 
 // Or if you already know the username and password:
@@ -122,7 +122,7 @@ const response = await fetch(
       roles: [],
       type: 'user',
     }),
-  }
+  },
 )
 ```
 
@@ -167,7 +167,7 @@ const remoteDB = new PouchDB(
       username: username,
       password: password,
     },
-  }
+  },
 )
 ```
 
@@ -386,7 +386,7 @@ function getUserDatabaseName(name, prefix = 'userdb-') {
   const encoder = new TextEncoder()
   const buffy = encoder.encode(name)
   const bytes = Array.from(buffy).map(byte =>
-    byte.toString(16).padStart(2, '0')
+    byte.toString(16).padStart(2, '0'),
   )
   return prefix + bytes.join('')
 }
@@ -834,7 +834,7 @@ function getUserDatabaseName(name, prefix = 'userdb-') {
   const encoder = new TextEncoder()
   const buffy = encoder.encode(name)
   const bytes = Array.from(buffy).map(byte =>
-    byte.toString(16).padStart(2, '0')
+    byte.toString(16).padStart(2, '0'),
   )
   return prefix + bytes.join('')
 }

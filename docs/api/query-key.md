@@ -92,18 +92,6 @@ interface QueryKeyOptions {
    * If provided, this will be used instead of auto-generating from options.
    */
   queryKey?: string | readonly unknown[]
-
-  /**
-   * How long data stays fresh (in ms). Defaults to 0 (always stale).
-   * Reserved for future caching implementations.
-   */
-  staleTime?: number
-
-  /**
-   * How long unused data stays in cache (in ms). Defaults to 5 minutes.
-   * Reserved for future caching implementations.
-   */
-  cacheTime?: number
 }
 ```
 
@@ -260,7 +248,7 @@ const filter = useMemo(
     status: { $in: ['active', 'pending'] },
     category: selectedCategory,
   }),
-  [selectedCategory]
+  [selectedCategory],
 )
 
 const { docs } = useFind({
@@ -309,7 +297,7 @@ const filters = useMemo(
     status: 'active',
     category: selectedCategory,
   }),
-  [selectedCategory]
+  [selectedCategory],
 )
 
 const { docs } = useFind({

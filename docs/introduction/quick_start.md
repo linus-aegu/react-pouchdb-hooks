@@ -81,7 +81,7 @@ ReactDOM.render(
   <Provider pouchdb={db}>
     <App />
   </Provider>,
-  document.getElementById('root')
+  document.getElementById('root'),
 )
 ```
 
@@ -108,7 +108,7 @@ ReactDOM.render(
   >
     <App />
   </Provider>,
-  document.getElementById('root')
+  document.getElementById('root'),
 )
 ```
 
@@ -250,7 +250,7 @@ export default function Comments({ id }) {
       startkey: [id],
       endkey: [id, {}],
       include_docs: true,
-    }
+    },
   )
 
   if (loading && rows.length === 0) {
@@ -294,7 +294,7 @@ export function useDelete(errorCallback) {
         errorCallback(error)
       }
     },
-    [db, errorCallback]
+    [db, errorCallback],
   )
 }
 ```

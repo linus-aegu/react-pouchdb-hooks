@@ -330,7 +330,7 @@ db.put(
     } else {
       // handle response
     }
-  }
+  },
 )
 ```
 

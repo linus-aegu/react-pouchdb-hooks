@@ -277,7 +277,7 @@ var designDoc = {
               time.getUTCMinutes(),
               time.getUTCSeconds(),
             ],
-            doc.amount
+            doc.amount,
           )
         }
       }.toString(),

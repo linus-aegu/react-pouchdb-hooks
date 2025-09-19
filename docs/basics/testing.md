@@ -132,7 +132,7 @@ test('Test Component', async () => {
   const { queryByByText } = render(
     <Provider pouchdb={db}>
       <TodoList />
-    </Provider>
+    </Provider>,
   )
 
   const first = queryByByText('moar todo')
@@ -186,7 +186,7 @@ export function useAddDoc() {
 
       return db.put(doc)
     },
-    [db]
+    [db],
   )
 }
 ```
