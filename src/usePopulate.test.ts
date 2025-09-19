@@ -46,6 +46,11 @@ interface TestUser {
   type: 'user'
   name: string
   email: string
+  bio?: string
+  address?: {
+    city: string
+    country: string
+  }
 }
 
 describe('populateDocuments', () => {
@@ -96,6 +101,11 @@ describe('populateDocuments', () => {
       type: 'user',
       name: 'John Doe',
       email: 'john@example.com',
+      bio: 'Software developer passionate about React and PouchDB',
+      address: {
+        city: 'San Francisco',
+        country: 'USA',
+      },
     } as TestUser)
 
     await db.put({
@@ -103,6 +113,11 @@ describe('populateDocuments', () => {
       type: 'user',
       name: 'Jane Smith',
       email: 'jane@example.com',
+      bio: 'Technical writer and UX designer',
+      address: {
+        city: 'London',
+        country: 'UK',
+      },
     } as TestUser)
 
     // Create test posts
@@ -1503,5 +1518,617 @@ describe('Nested Field Path Population', () => {
     expect(order.material_info.cultivar_id).toBe('cultivar_1')
     expect(order.material_info.existing_field).toBe('should remain')
     expect(order.material_info.nested.data).toBe('preserved')
+  })
+})
+
+describe('Field Selection Functionality', () => {
+  let db: PouchDB.Database
+  let mockContext: {
+    pouchdb: PouchDB.Database
+    subscriptionManager: MockSubscriptionManager
+  }
+
+  beforeEach(async () => {
+    db = new PouchDB('test-field-selection', { adapter: 'memory' })
+    mockContext = {
+      pouchdb: db,
+      subscriptionManager: {
+        subscribeToDocs: jest.fn(() => jest.fn()),
+        subscribeToView: jest.fn(() => jest.fn()),
+        unsubscribeAll: jest.fn(),
+      },
+    }
+
+    // Setup test data with rich user documents
+    await db.put({
+      _id: 'user_1',
+      type: 'user',
+      name: 'John Doe',
+      email: 'john@example.com',
+      bio: 'Software developer passionate about React and PouchDB',
+      address: {
+        city: 'San Francisco',
+        country: 'USA',
+        zipCode: '94102',
+      },
+      preferences: {
+        theme: 'dark',
+        notifications: true,
+      },
+      age: 30,
+      salary: 120000,
+      ssn: '123-45-6789',
+    } as TestUser)
+
+    await db.put({
+      _id: 'user_2',
+      type: 'user',
+      name: 'Jane Smith',
+      email: 'jane@example.com',
+      bio: 'Technical writer and UX designer',
+      address: {
+        city: 'London',
+        country: 'UK',
+        zipCode: 'SW1A 1AA',
+      },
+      preferences: {
+        theme: 'light',
+        notifications: false,
+      },
+      age: 28,
+      salary: 95000,
+      ssn: '987-65-4321',
+    } as TestUser)
+  })
+
+  afterEach(async () => {
+    await db.destroy()
+  })
+
+  it('should include only specified fields when fields array is provided', async () => {
+    const documents = [
+      {
+        _id: 'post_1',
+        _rev: '1-abc',
+        type: 'post',
+        title: 'Test Post',
+        author_id: 'user_1',
+      },
+    ] as TestPost[]
+
+    const populateConfig: PopulateConfig = {
+      author_id: {
+        as: 'author',
+        fields: ['name', 'email'],
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext,
+    )
+
+    expect(result).toHaveLength(1)
+    const post = result[0] as any
+
+    // Should include specified fields plus _id and _rev
+    expect(post.author).toEqual({
+      _id: 'user_1',
+      _rev: expect.any(String),
+      name: 'John Doe',
+      email: 'john@example.com',
+    })
+
+    // Should not include other fields
+    expect(post.author).not.toHaveProperty('bio')
+    expect(post.author).not.toHaveProperty('age')
+    expect(post.author).not.toHaveProperty('salary')
+    expect(post.author).not.toHaveProperty('ssn')
+    expect(post.author).not.toHaveProperty('address')
+    expect(post.author).not.toHaveProperty('preferences')
+  })
+
+  it('should include nested fields using dot notation', async () => {
+    const documents = [
+      {
+        _id: 'post_1',
+        _rev: '1-abc',
+        type: 'post',
+        title: 'Test Post',
+        author_id: 'user_1',
+      },
+    ] as TestPost[]
+
+    const populateConfig: PopulateConfig = {
+      author_id: {
+        as: 'author',
+        fields: ['name', 'address.city', 'address.country'],
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext,
+    )
+
+    expect(result).toHaveLength(1)
+    const post = result[0] as any
+
+    // Should include specified fields with nested structure
+    expect(post.author).toEqual({
+      _id: 'user_1',
+      _rev: expect.any(String),
+      name: 'John Doe',
+      address: {
+        city: 'San Francisco',
+        country: 'USA',
+      },
+    })
+
+    // Should not include other nested fields or top-level fields
+    expect(post.author.address).not.toHaveProperty('zipCode')
+    expect(post.author).not.toHaveProperty('email')
+    expect(post.author).not.toHaveProperty('preferences')
+  })
+
+  it('should include entire document when no fields specified', async () => {
+    const documents = [
+      {
+        _id: 'post_1',
+        _rev: '1-abc',
+        type: 'post',
+        title: 'Test Post',
+        author_id: 'user_1',
+      },
+    ] as TestPost[]
+
+    const populateConfig: PopulateConfig = {
+      author_id: {
+        as: 'author',
+        // No fields specified - should include entire document
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext,
+    )
+
+    expect(result).toHaveLength(1)
+    const post = result[0] as any
+
+    // Should include all fields
+    expect(post.author).toMatchObject({
+      _id: 'user_1',
+      name: 'John Doe',
+      email: 'john@example.com',
+      bio: 'Software developer passionate about React and PouchDB',
+      age: 30,
+      salary: 120000,
+      ssn: '123-45-6789',
+      address: {
+        city: 'San Francisco',
+        country: 'USA',
+        zipCode: '94102',
+      },
+      preferences: {
+        theme: 'dark',
+        notifications: true,
+      },
+    })
+  })
+
+  it('should include entire document when fields array is empty', async () => {
+    const documents = [
+      {
+        _id: 'post_1',
+        _rev: '1-abc',
+        type: 'post',
+        title: 'Test Post',
+        author_id: 'user_1',
+      },
+    ] as TestPost[]
+
+    const populateConfig: PopulateConfig = {
+      author_id: {
+        as: 'author',
+        fields: [], // Empty array - should include entire document
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext,
+    )
+
+    expect(result).toHaveLength(1)
+    const post = result[0] as any
+
+    // Should include all fields
+    expect(post.author).toMatchObject({
+      _id: 'user_1',
+      name: 'John Doe',
+      email: 'john@example.com',
+      bio: 'Software developer passionate about React and PouchDB',
+    })
+  })
+
+  it('should handle field selection with multiple populated references', async () => {
+    await db.put({
+      _id: 'site_1',
+      type: 'site',
+      name: 'Tech Blog',
+      domain: 'techblog.com',
+      description: 'A blog about technology',
+      founded: '2020',
+      traffic: 1000000,
+      secret_key: 'top-secret',
+    } as TestSite)
+
+    const documents = [
+      {
+        _id: 'post_1',
+        _rev: '1-abc',
+        type: 'post',
+        title: 'Test Post',
+        site_id: 'site_1',
+        author_id: 'user_1',
+      },
+    ] as TestPost[]
+
+    const populateConfig: PopulateConfig = {
+      site_id: {
+        as: 'site',
+        fields: ['name', 'domain'],
+      },
+      author_id: {
+        as: 'author',
+        fields: ['name', 'email'],
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext,
+    )
+
+    expect(result).toHaveLength(1)
+    const post = result[0] as any
+
+    // Site should only have specified fields
+    expect(post.site).toEqual({
+      _id: 'site_1',
+      _rev: expect.any(String),
+      name: 'Tech Blog',
+      domain: 'techblog.com',
+    })
+
+    // Author should only have specified fields
+    expect(post.author).toEqual({
+      _id: 'user_1',
+      _rev: expect.any(String),
+      name: 'John Doe',
+      email: 'john@example.com',
+    })
+
+    // Should not include sensitive or unspecified fields
+    expect(post.site).not.toHaveProperty('secret_key')
+    expect(post.site).not.toHaveProperty('traffic')
+    expect(post.author).not.toHaveProperty('salary')
+    expect(post.author).not.toHaveProperty('ssn')
+  })
+
+  it('should handle field selection with nested populate', async () => {
+    // Create company document
+    await db.put({
+      _id: 'company_1',
+      type: 'company',
+      name: 'Tech Corp',
+      industry: 'Technology',
+      revenue: 5000000,
+      employees: 100,
+      internal_id: 'INTERNAL_123',
+      address: {
+        city: 'Seattle',
+        state: 'WA',
+        country: 'USA',
+      },
+    })
+
+    // Update user to include company reference
+    const existingUser = await db.get('user_1')
+    await db.put({
+      ...existingUser,
+      company_id: 'company_1',
+    } as TestUser)
+
+    const documents = [
+      {
+        _id: 'post_1',
+        _rev: '1-abc',
+        type: 'post',
+        title: 'Test Post',
+        author_id: 'user_1',
+      },
+    ] as TestPost[]
+
+    const populateConfig: PopulateConfig = {
+      author_id: {
+        as: 'author',
+        fields: ['name', 'email'],
+        populate: {
+          company_id: {
+            as: 'company',
+            fields: ['name', 'industry', 'address.city'],
+          },
+        },
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext,
+    )
+
+    expect(result).toHaveLength(1)
+    const post = result[0] as any
+
+    // Author should only have specified fields
+    expect(post.author).toEqual({
+      _id: 'user_1',
+      _rev: expect.any(String),
+      name: 'John Doe',
+      email: 'john@example.com',
+      company: {
+        _id: 'company_1',
+        _rev: expect.any(String),
+        name: 'Tech Corp',
+        industry: 'Technology',
+        address: {
+          city: 'Seattle',
+        },
+      },
+    })
+
+    // Should not include sensitive company data
+    expect(post.author.company).not.toHaveProperty('revenue')
+    expect(post.author.company).not.toHaveProperty('internal_id')
+    expect(post.author.company.address).not.toHaveProperty('state')
+    expect(post.author.company.address).not.toHaveProperty('country')
+
+    // Should not include sensitive user data
+    expect(post.author).not.toHaveProperty('salary')
+    expect(post.author).not.toHaveProperty('ssn')
+  })
+
+  it('should handle missing fields gracefully', async () => {
+    const documents = [
+      {
+        _id: 'post_1',
+        _rev: '1-abc',
+        type: 'post',
+        title: 'Test Post',
+        author_id: 'user_1',
+      },
+    ] as TestPost[]
+
+    const populateConfig: PopulateConfig = {
+      author_id: {
+        as: 'author',
+        fields: ['name', 'nonexistent_field', 'address.nonexistent_nested'],
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext,
+    )
+
+    expect(result).toHaveLength(1)
+    const post = result[0] as any
+
+    // Should only include existing fields
+    expect(post.author).toEqual({
+      _id: 'user_1',
+      _rev: expect.any(String),
+      name: 'John Doe',
+    })
+
+    // Should not include undefined fields
+    expect(post.author).not.toHaveProperty('nonexistent_field')
+    expect(post.author).not.toHaveProperty('address')
+  })
+
+  it('should preserve _id and _rev even when not in fields array', async () => {
+    const documents = [
+      {
+        _id: 'post_1',
+        _rev: '1-abc',
+        type: 'post',
+        title: 'Test Post',
+        author_id: 'user_1',
+      },
+    ] as TestPost[]
+
+    const populateConfig: PopulateConfig = {
+      author_id: {
+        as: 'author',
+        fields: ['name'], // Only name, but _id and _rev should still be included
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext,
+    )
+
+    expect(result).toHaveLength(1)
+    const post = result[0] as any
+
+    // Should always include _id and _rev for document integrity
+    expect(post.author).toEqual({
+      _id: 'user_1',
+      _rev: expect.any(String),
+      name: 'John Doe',
+    })
+
+    expect(post.author._id).toBe('user_1')
+    expect(post.author._rev).toBeTruthy()
+  })
+
+  it('should handle field selection in bulk operations efficiently', async () => {
+    const allDocsSpy = jest.spyOn(db, 'allDocs')
+
+    const documents = [
+      {
+        _id: 'post_1',
+        _rev: '1-abc',
+        type: 'post',
+        title: 'First Post',
+        author_id: 'user_1',
+      },
+      {
+        _id: 'post_2',
+        _rev: '1-def',
+        type: 'post',
+        title: 'Second Post',
+        author_id: 'user_2',
+      },
+    ] as TestPost[]
+
+    const populateConfig: PopulateConfig = {
+      author_id: {
+        as: 'author',
+        fields: ['name', 'email'],
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext,
+    )
+
+    // Should still use bulk fetching
+    expect(allDocsSpy).toHaveBeenCalledTimes(1)
+    expect(allDocsSpy.mock.calls[0][0].keys).toEqual(
+      expect.arrayContaining(['user_1', 'user_2']),
+    )
+
+    // Both authors should have field filtering applied
+    expect(result).toHaveLength(2)
+    expect(result[0].author).toEqual({
+      _id: 'user_1',
+      _rev: expect.any(String),
+      name: 'John Doe',
+      email: 'john@example.com',
+    })
+    expect(result[1].author).toEqual({
+      _id: 'user_2',
+      _rev: expect.any(String),
+      name: 'Jane Smith',
+      email: 'jane@example.com',
+    })
+
+    // Neither should have sensitive data
+    expect(result[0].author).not.toHaveProperty('salary')
+    expect(result[1].author).not.toHaveProperty('ssn')
+  })
+
+  it('should work with deeply nested field paths', async () => {
+    await db.put({
+      _id: 'user_complex',
+      type: 'user',
+      name: 'Complex User',
+      profile: {
+        personal: {
+          details: {
+            birthplace: 'New York',
+            education: {
+              university: 'MIT',
+              degree: 'Computer Science',
+            },
+          },
+        },
+        work: {
+          experience: {
+            current: {
+              position: 'Senior Developer',
+              salary: 150000,
+            },
+          },
+        },
+      },
+    })
+
+    const documents = [
+      {
+        _id: 'post_1',
+        _rev: '1-abc',
+        type: 'post',
+        title: 'Test Post',
+        author_id: 'user_complex',
+      },
+    ] as TestPost[]
+
+    const populateConfig: PopulateConfig = {
+      author_id: {
+        as: 'author',
+        fields: [
+          'name',
+          'profile.personal.details.birthplace',
+          'profile.personal.details.education.university',
+          'profile.work.experience.current.position',
+        ],
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext,
+    )
+
+    expect(result).toHaveLength(1)
+    const post = result[0] as any
+
+    expect(post.author).toEqual({
+      _id: 'user_complex',
+      _rev: expect.any(String),
+      name: 'Complex User',
+      profile: {
+        personal: {
+          details: {
+            birthplace: 'New York',
+            education: {
+              university: 'MIT',
+            },
+          },
+        },
+        work: {
+          experience: {
+            current: {
+              position: 'Senior Developer',
+            },
+          },
+        },
+      },
+    })
+
+    // Should not include the salary or degree
+    expect(post.author.profile.personal.details.education).not.toHaveProperty(
+      'degree',
+    )
+    expect(post.author.profile.work.experience.current).not.toHaveProperty(
+      'salary',
+    )
   })
 })

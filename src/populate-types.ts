@@ -8,6 +8,13 @@ export interface PopulateFieldConfig {
   db?: string
   /** Nested populate configuration for the populated document (recursive) */
   populate?: PopulateConfig
+  /**
+   * Array of field names to include from the populated document.
+   * Supports nested field paths using dot notation (e.g., 'address.city').
+   * If not specified, the entire document is included.
+   * Special fields (_id, _rev) are always included for document integrity.
+   */
+  fields?: string[]
 }
 
 /**

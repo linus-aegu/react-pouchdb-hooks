@@ -71,6 +71,85 @@ function setNestedValue(
 }
 
 /**
+ * Extract only specified fields from a document, including nested paths
+ * Always preserves _id and _rev for document integrity
+ */
+function extractFields(
+  doc: Record<string, unknown>,
+  fields?: string[],
+  populateConfig?: PopulateConfig,
+): Record<string, unknown> {
+  // If no fields specified, return the entire document
+  if (!fields || fields.length === 0) {
+    return doc
+  }
+
+  const extracted: Record<string, unknown> = {}
+
+  // Always include _id and _rev for document integrity
+  if (doc._id !== undefined) {
+    extracted._id = doc._id
+  }
+  if (doc._rev !== undefined) {
+    extracted._rev = doc._rev
+  }
+
+  // Collect all fields that need to be preserved for nested population
+  const requiredForPopulation = new Set<string>()
+  if (populateConfig) {
+    for (const fieldName of Object.keys(populateConfig)) {
+      requiredForPopulation.add(fieldName)
+    }
+  }
+
+  // Extract specified fields
+  for (const fieldPath of fields) {
+    const value = getNestedValue(doc, fieldPath)
+    if (value !== undefined) {
+      setNestedValue(extracted, fieldPath, value)
+    }
+  }
+
+  // Also include fields required for nested population that weren't explicitly requested
+  // These will be cleaned up after nested population is complete
+  for (const fieldName of requiredForPopulation) {
+    if (!fields.includes(fieldName)) {
+      const value = getNestedValue(doc, fieldName)
+      if (value !== undefined) {
+        setNestedValue(extracted, fieldName, value)
+      }
+    }
+  }
+
+  return extracted
+}
+
+/**
+ * Remove fields that were only needed for nested population
+ */
+function cleanupPopulateFields(
+  doc: Record<string, unknown>,
+  fields?: string[],
+  populateConfig?: PopulateConfig,
+): Record<string, unknown> {
+  // If no fields specified, return the entire document
+  if (!fields || fields.length === 0 || !populateConfig) {
+    return doc
+  }
+
+  const cleaned = { ...doc }
+
+  // Remove fields that were only added for nested population
+  for (const fieldName of Object.keys(populateConfig)) {
+    if (!fields.includes(fieldName)) {
+      delete cleaned[fieldName]
+    }
+  }
+
+  return cleaned
+}
+
+/**
  * Core populate utility function that can be called from other hooks
  * This is the pure function version that doesn't use React hooks
  */
@@ -167,8 +246,14 @@ export async function populateDocuments<T extends Record<string, unknown>>(
 
           const referencedDoc = referenceCache[referenceId]
           if (referencedDoc) {
+            // Extract only specified fields if configured
+            const processedDoc = extractFields(
+              referencedDoc,
+              fieldConfig.fields,
+              fieldConfig.populate,
+            )
             // Use setNestedValue to support nested 'as' paths
-            setNestedValue(populatedDoc, fieldConfig.as, referencedDoc)
+            setNestedValue(populatedDoc, fieldConfig.as, processedDoc)
           } else if (process.env.NODE_ENV === 'development') {
             console.warn(
               `Populate: Reference not found for ${fieldName}: ${referenceId}`,
@@ -219,6 +304,27 @@ export async function populateDocuments<T extends Record<string, unknown>>(
       }),
     )
 
+    // Clean up temporary fields that were only needed for nested population
+    const finalPopulatedDocuments = nestedPopulatedDocuments.map(doc => {
+      let cleanedDoc = doc
+      for (const [, fieldConfig] of Object.entries(populateConfig)) {
+        if (fieldConfig.fields) {
+          // Clean up the populated document at the nested path
+          const populatedField = getNestedValue(cleanedDoc, fieldConfig.as)
+          if (populatedField) {
+            const cleanedField = cleanupPopulateFields(
+              populatedField as Record<string, unknown>,
+              fieldConfig.fields,
+              fieldConfig.populate,
+            )
+            cleanedDoc = { ...cleanedDoc }
+            setNestedValue(cleanedDoc, fieldConfig.as, cleanedField)
+          }
+        }
+      }
+      return cleanedDoc
+    })
+
     // Performance monitoring in development
     if (process.env.NODE_ENV === 'development') {
       const duration = Date.now() - startTime
@@ -231,7 +337,7 @@ export async function populateDocuments<T extends Record<string, unknown>>(
       )
     }
 
-    return nestedPopulatedDocuments
+    return finalPopulatedDocuments
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.error('Populate: Error during population:', error)

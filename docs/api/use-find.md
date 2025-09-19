@@ -82,6 +82,7 @@ interface PopulateFieldConfig {
   as: string // Field name where populated document will be stored
   db?: string // Database name if different from current (optional)
   populate?: PopulateConfig // Nested populate configuration (recursive)
+  fields?: string[] // Array of fields to include from populated document
 }
 
 interface PopulateConfig {
@@ -89,9 +90,37 @@ interface PopulateConfig {
 }
 ```
 
+### Field Selection
+
+You can specify which fields to include from populated documents using the `fields` array:
+
+```typescript
+const { docs } = useFind({
+  selector: { type: 'post' },
+  populate: {
+    authorId: {
+      as: 'author',
+      fields: ['name', 'email'], // Only include name and email fields
+    },
+    categoryId: {
+      as: 'category',
+      fields: ['title', 'description', 'tags'],
+    },
+  },
+})
+```
+
+**Field Selection Features:**
+
+- **Dot notation**: Access nested fields like `'address.city'` or `'profile.social.twitter'`
+- **Security**: Exclude sensitive fields like passwords, API keys, or internal data
+- **Performance**: Reduce memory usage and transfer size for large documents
+- **Automatic inclusion**: `_id` and `_rev` are always included for document integrity
+
 ### Performance Considerations
 
 - Populate operations are optimized with bulk fetching using `allDocs()`
+- Field selection reduces memory usage and improves performance
 - Results are cached during a single populate operation
 - Circular reference detection prevents infinite loops
 - Maximum recursion depth prevents performance issues
@@ -269,15 +298,18 @@ export default function BlogPosts() {
     populate: {
       authorId: {
         as: 'author',
+        fields: ['name', 'email', 'avatar'], // Only include specific fields
         // Nested populate: also populate the author's company
         populate: {
           companyId: {
             as: 'company',
+            fields: ['name', 'industry'], // Don't include sensitive company data
           },
         },
       },
       categoryId: {
         as: 'category',
+        fields: ['name', 'description', 'color'], // Exclude internal category fields
       },
     },
     maxDepth: 2, // Limit recursion depth
@@ -350,3 +382,75 @@ export default function Orders() {
   )
 }
 ```
+
+### Field Selection for Security and Performance
+
+This example demonstrates how to use field selection to exclude sensitive data and improve performance:
+
+```jsx
+import React from 'react'
+import { useFind } from '@aegu/react-pouchdb-hooks'
+
+export default function UserProfiles() {
+  const { docs, loading, error } = useFind({
+    selector: { type: 'user', status: 'active' },
+    populate: {
+      // Only include public profile information
+      profileId: {
+        as: 'profile',
+        fields: [
+          'displayName',
+          'bio',
+          'avatar',
+          'socialLinks.twitter',
+          'socialLinks.github',
+        ],
+        // Excludes: email, phone, address, preferences, etc.
+      },
+      // Include minimal company information
+      companyId: {
+        as: 'company',
+        fields: ['name', 'website', 'logo'],
+        // Excludes: revenue, employee_count, internal_notes, etc.
+      },
+      // Nested field selection for location
+      locationId: {
+        as: 'location',
+        fields: ['city', 'country', 'timezone'],
+        // Excludes: street_address, postal_code, coordinates
+      },
+    },
+  })
+
+  if (loading) return <div>Loading users...</div>
+  if (error) return <div>Error: {error.message}</div>
+
+  return (
+    <div className="user-grid">
+      {docs.map(user => (
+        <div key={user._id} className="user-card">
+          <img src={user.profile?.avatar} alt={user.profile?.displayName} />
+          <h3>{user.profile?.displayName}</h3>
+          <p>{user.profile?.bio}</p>
+          <p>
+            {user.company?.name} • {user.location?.city},{' '}
+            {user.location?.country}
+          </p>
+          {user.profile?.socialLinks?.twitter && (
+            <a href={`https://twitter.com/${user.profile.socialLinks.twitter}`}>
+              @{user.profile.socialLinks.twitter}
+            </a>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+```
+
+**Benefits of Field Selection:**
+
+- **Security**: Sensitive fields like email, phone, and address are automatically excluded
+- **Performance**: Smaller data transfers and reduced memory usage
+- **Clean Data**: UI components receive only the data they need
+- **Nested Access**: Use dot notation to access deeply nested fields like `socialLinks.twitter`
