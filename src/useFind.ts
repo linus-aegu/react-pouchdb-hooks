@@ -57,6 +57,13 @@ export interface FindHookOptions extends CommonOptions, QueryKeyOptions {
    * Number of docs to skip before returning.
    */
   skip?: number
+
+  /**
+   * When false, the query will not execute and will return an empty result.
+   * When true (default), the query executes normally.
+   * This follows the React Query pattern for conditional queries.
+   */
+  enabled?: boolean
 }
 
 /**
@@ -92,8 +99,13 @@ export default function useFind<Content extends Record<string, unknown>>(
   // Stabilize the entire options object first using useDeepMemo
   const stableOptions = useDeepMemo(options)
 
-  // Extract populate option from stable options
-  const { populate, queryKey: userQueryKey, ...findOptions } = stableOptions
+  // Extract populate, queryKey, and enabled option from stable options
+  const {
+    populate,
+    queryKey: userQueryKey,
+    enabled = true,
+    ...findOptions
+  } = stableOptions
 
   // Create stable options object for queryKey generation
   const queryKeyOptions = useMemo(
@@ -121,6 +133,17 @@ export default function useFind<Content extends Record<string, unknown>>(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   // Individual options are captured by queryKey for performance optimization
   useEffect(() => {
+    // Early return when query is disabled - no fetching, no subscriptions
+    if (!enabled) {
+      // Smart dispatch: Only clear loading state if currently loading
+      // This prevents stuck loading on initial mount or mid-query disable
+      // while preserving previous data when toggling enabled off after success
+      if (state.state === 'loading') {
+        dispatch({ type: 'loading_finished', payload: { docs: [] } })
+      }
+      return () => {} // No-op cleanup
+    }
+
     let isActive = true
     let isFetching = false
     let shouldUpdateAfter = false
@@ -279,6 +302,8 @@ export default function useFind<Content extends Record<string, unknown>>(
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    enabled, // Must be first to trigger early return before any query logic
+    state, // Required for smart dispatch when enabled changes
     pouch,
     subscriptionManager,
     dispatch,

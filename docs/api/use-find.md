@@ -55,6 +55,7 @@ Options descriptions are copied from the PouchDB API page.
      Note that sorted fields also have to be selected in the `options.selector`.
    - `options.limit?: number` - Maximum number of documents to return.
    - `options.skip?: number` - Number of docs to skip before returning.
+   - `options.enabled?: boolean` - When `false`, the query will not execute and will return an empty result. When `true` (default), the query executes normally. This follows the React Query pattern for conditional queries and is useful for skipping queries based on runtime conditions.
    - `options.db?: string` - Selects the database to be used. The database is selected by it's name/key.
      The special key `"_default"` selects the _default database_. Defaults to `"_default"`.
    - `options.populate?: PopulateConfig` - Configuration for populating referenced documents. See [Populate Feature](#populate-feature) below.
@@ -382,6 +383,62 @@ export default function Orders() {
   )
 }
 ```
+
+### Conditional Queries with `enabled`
+
+The `enabled` option allows you to conditionally execute queries based on runtime conditions. When `enabled` is `false`, the query will not execute, preventing unnecessary database operations.
+
+```jsx
+import React, { useState } from 'react'
+import { useFind } from '@aegu/react-pouchdb-hooks'
+
+export default function UserPosts({ userId }) {
+  const [showPosts, setShowPosts] = useState(true)
+
+  // Query only executes when showPosts is true and userId is provided
+  const { docs, loading, error } = useFind({
+    index: {
+      fields: ['type', 'authorId'],
+    },
+    selector: {
+      type: 'post',
+      authorId: userId,
+    },
+    // Skip query when conditions aren't met
+    enabled: showPosts && userId != null,
+  })
+
+  return (
+    <div>
+      <label>
+        <input
+          type="checkbox"
+          checked={showPosts}
+          onChange={e => setShowPosts(e.target.checked)}
+        />
+        Show posts
+      </label>
+
+      {error && <p>Error: {error.message}</p>}
+      {loading && <p>Loading...</p>}
+      {!loading && docs.length > 0 && (
+        <ul>
+          {docs.map(post => (
+            <li key={post._id}>{post.title}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+```
+
+**Benefits:**
+
+- **Performance**: Completely skips query execution and subscriptions when disabled
+- **Clean code**: Avoids conditional hook calls or dummy selectors
+- **React Query pattern**: Familiar API for developers
+- **Dynamic**: Can depend on props, state, or computed values
 
 ### Field Selection for Security and Performance
 
