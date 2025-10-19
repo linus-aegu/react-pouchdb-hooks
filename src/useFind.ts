@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { matchesSelector } from 'pouchdb-selector-core'
 
 import { useContext } from './context'
@@ -130,19 +130,26 @@ export default function useFind<Content extends Record<string, unknown>>(
     }),
   )
 
+  // Track if we've dispatched for disabled state to prevent infinite loops
+  // BUGFIX: Without this ref, adding state to dependencies causes infinite re-renders
+  const hasDispatchedForDisabled = useRef(false)
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   // Individual options are captured by queryKey for performance optimization
   useEffect(() => {
     // Early return when query is disabled - no fetching, no subscriptions
     if (!enabled) {
-      // Smart dispatch: Only clear loading state if currently loading
+      // Only dispatch once when disabled to clear loading state
       // This prevents stuck loading on initial mount or mid-query disable
-      // while preserving previous data when toggling enabled off after success
-      if (state.state === 'loading') {
+      if (!hasDispatchedForDisabled.current) {
         dispatch({ type: 'loading_finished', payload: { docs: [] } })
+        hasDispatchedForDisabled.current = true
       }
       return () => {} // No-op cleanup
     }
+
+    // Reset the flag when query becomes enabled again
+    hasDispatchedForDisabled.current = false
 
     let isActive = true
     let isFetching = false
@@ -303,7 +310,7 @@ export default function useFind<Content extends Record<string, unknown>>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     enabled, // Must be first to trigger early return before any query logic
-    state, // Required for smart dispatch when enabled changes
+    // state removed - was causing infinite loop when dispatching for disabled queries
     pouch,
     subscriptionManager,
     dispatch,
