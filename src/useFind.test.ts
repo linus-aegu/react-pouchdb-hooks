@@ -1795,3 +1795,488 @@ describe('populate functionality', () => {
     })
   })
 })
+
+describe('enabled option', () => {
+  test('should not execute query when enabled is false on mount', async () => {
+    await createDocs()
+
+    const { result } = renderHook(
+      () =>
+        useFind({
+          selector: { _id: { $gte: 'DS9' } },
+          sort: ['_id'],
+          enabled: false,
+        }),
+      {
+        pouchdb: myPouch,
+      },
+    )
+
+    // Should not be loading
+    expect(result.current.loading).toBeFalsy()
+    expect(result.current.state).toBe('done')
+    // Should return empty docs
+    expect(result.current.docs).toEqual([])
+    expect(result.current.error).toBeNull()
+
+    // Wait a bit to ensure no query happens
+    await sleep(50)
+
+    // Still no docs
+    expect(result.current.docs).toEqual([])
+    expect(result.current.loading).toBeFalsy()
+  })
+
+  test('should execute query normally when enabled is true (default)', async () => {
+    await createDocs()
+
+    const { result } = renderHook(
+      () =>
+        useFind({
+          selector: { _id: { $gte: 'DS9' } },
+          sort: ['_id'],
+          enabled: true,
+        }),
+      {
+        pouchdb: myPouch,
+      },
+    )
+
+    expect(result.current.loading).toBeTruthy()
+
+    await waitForLoadingChange(result, false)
+
+    expect(result.current.docs).toHaveLength(5)
+    expect(result.current.loading).toBeFalsy()
+  })
+
+  test('should execute query when enabled is undefined (defaults to true)', async () => {
+    await createDocs()
+
+    const { result } = renderHook(
+      () =>
+        useFind({
+          selector: { _id: { $gte: 'DS9' } },
+          sort: ['_id'],
+          // enabled not specified, should default to true
+        }),
+      {
+        pouchdb: myPouch,
+      },
+    )
+
+    expect(result.current.loading).toBeTruthy()
+
+    await waitForLoadingChange(result, false)
+
+    expect(result.current.docs).toHaveLength(5)
+    expect(result.current.loading).toBeFalsy()
+  })
+
+  test('should start querying when toggling from false to true', async () => {
+    await createDocs()
+
+    const { result, rerender } = renderHook(
+      (enabled: boolean) =>
+        useFind({
+          selector: { _id: { $gte: 'DS9' } },
+          sort: ['_id'],
+          enabled,
+        }),
+      {
+        initialProps: false,
+        pouchdb: myPouch,
+      },
+    )
+
+    // Initially disabled
+    expect(result.current.loading).toBeFalsy()
+    expect(result.current.docs).toEqual([])
+
+    // Enable the query
+    rerender(true)
+
+    expect(result.current.loading).toBeTruthy()
+
+    await waitForLoadingChange(result, false)
+
+    expect(result.current.docs).toHaveLength(5)
+    expect(result.current.loading).toBeFalsy()
+  })
+
+  test('should preserve data when toggling from true to false', async () => {
+    await createDocs()
+
+    const { result, rerender } = renderHook(
+      (enabled: boolean) =>
+        useFind({
+          selector: { _id: { $gte: 'DS9' } },
+          sort: ['_id'],
+          enabled,
+        }),
+      {
+        initialProps: true,
+        pouchdb: myPouch,
+      },
+    )
+
+    await waitForLoadingChange(result, false)
+
+    expect(result.current.docs).toHaveLength(5)
+    const docsWhenEnabled = result.current.docs
+
+    // Disable the query
+    rerender(false)
+
+    // Should preserve the previous data
+    expect(result.current.loading).toBeFalsy()
+    expect(result.current.docs).toEqual(docsWhenEnabled)
+  })
+
+  test('should handle false -> true -> false transition', async () => {
+    await createDocs()
+
+    const { result, rerender } = renderHook(
+      (enabled: boolean) =>
+        useFind({
+          selector: { _id: { $gte: 'DS9' } },
+          sort: ['_id'],
+          enabled,
+        }),
+      {
+        initialProps: false,
+        pouchdb: myPouch,
+      },
+    )
+
+    // 1. Initially disabled
+    expect(result.current.docs).toEqual([])
+
+    // 2. Enable
+    rerender(true)
+    await waitForLoadingChange(result, false)
+    expect(result.current.docs).toHaveLength(5)
+    const docsWhenEnabled = result.current.docs
+
+    // 3. Disable again
+    rerender(false)
+    expect(result.current.loading).toBeFalsy()
+    // Should keep the data from when it was enabled
+    expect(result.current.docs).toEqual(docsWhenEnabled)
+  })
+
+  test('should handle multiple rapid toggles', async () => {
+    await createDocs()
+
+    const { result, rerender } = renderHook(
+      (enabled: boolean) =>
+        useFind({
+          selector: { _id: { $gte: 'DS9' } },
+          sort: ['_id'],
+          enabled,
+        }),
+      {
+        initialProps: false,
+        pouchdb: myPouch,
+      },
+    )
+
+    // false -> true
+    rerender(true)
+    await waitForLoadingChange(result, false)
+    expect(result.current.docs).toHaveLength(5)
+
+    // true -> false
+    rerender(false)
+    expect(result.current.loading).toBeFalsy()
+
+    // false -> true
+    rerender(true)
+    await waitForLoadingChange(result, false)
+    expect(result.current.docs).toHaveLength(5)
+
+    // true -> false
+    rerender(false)
+    expect(result.current.loading).toBeFalsy()
+    expect(result.current.docs).toHaveLength(5)
+  })
+
+  test('should not cause infinite re-renders', async () => {
+    await createDocs()
+
+    let renderCount = 0
+
+    const { result, rerender } = renderHook(
+      (enabled: boolean) => {
+        renderCount++
+        return useFind({
+          selector: { _id: { $gte: 'DS9' } },
+          sort: ['_id'],
+          enabled,
+        })
+      },
+      {
+        initialProps: false,
+        pouchdb: myPouch,
+      },
+    )
+
+    // Reset counter after initial render
+    renderCount = 0
+
+    // Toggle to enabled
+    rerender(true)
+    await waitForLoadingChange(result, false)
+
+    // With React 19's StrictMode, we expect at most a few renders
+    // (initial + loading state + done state + potential strict mode double render)
+    // If there's an infinite loop, this would be >> 50
+    expect(renderCount).toBeLessThan(50)
+
+    // Reset counter
+    renderCount = 0
+
+    // Toggle to disabled
+    rerender(false)
+    await sleep(50)
+
+    // Should not cause many re-renders
+    expect(renderCount).toBeLessThan(10)
+  })
+
+  test('should not subscribe to changes when disabled', async () => {
+    await createDocs()
+
+    const { result, rerender } = renderHook(
+      (enabled: boolean) =>
+        useFind({
+          selector: { _id: { $gte: 'DS9' } },
+          sort: ['_id'],
+          enabled,
+        }),
+      {
+        initialProps: false,
+        pouchdb: myPouch,
+      },
+    )
+
+    // Disabled initially
+    expect(result.current.docs).toEqual([])
+
+    // Add a document while disabled
+    await act(async () => {
+      await myPouch.put({
+        _id: 'zzz',
+        name: 'Test',
+      })
+      await sleep(50)
+    })
+
+    // Should not have reacted to the change
+    expect(result.current.docs).toEqual([])
+
+    // Now enable
+    rerender(true)
+    await waitForLoadingChange(result, false)
+
+    // Should now include the new document
+    expect(result.current.docs).toHaveLength(6)
+  })
+
+  test('should re-subscribe when re-enabled', async () => {
+    await createDocs()
+
+    const { result, rerender } = renderHook(
+      (enabled: boolean) =>
+        useFind({
+          selector: { _id: { $gte: 'DS9' } },
+          sort: ['_id'],
+          enabled,
+        }),
+      {
+        initialProps: true,
+        pouchdb: myPouch,
+      },
+    )
+
+    await waitForLoadingChange(result, false)
+    expect(result.current.docs).toHaveLength(5)
+
+    // Disable
+    rerender(false)
+
+    // Re-enable
+    rerender(true)
+    await waitForLoadingChange(result, false)
+
+    // Should now be subscribed to changes
+    await act(async () => {
+      await myPouch.put({
+        _id: 'zzz',
+        captain: 'Hook',
+      })
+    })
+
+    await waitForNextUpdate(result)
+
+    expect(result.current.docs).toHaveLength(6)
+  })
+
+  test('loading state should not get stuck when toggling', async () => {
+    await createDocs()
+
+    const { result, rerender } = renderHook(
+      (enabled: boolean) =>
+        useFind({
+          selector: { _id: { $gte: 'DS9' } },
+          sort: ['_id'],
+          enabled,
+        }),
+      {
+        initialProps: true,
+        pouchdb: myPouch,
+      },
+    )
+
+    // Wait for initial load
+    await waitForLoadingChange(result, false)
+    expect(result.current.loading).toBeFalsy()
+
+    // Disable
+    rerender(false)
+    expect(result.current.loading).toBeFalsy()
+
+    // Re-enable
+    rerender(true)
+    expect(result.current.loading).toBeTruthy()
+    await waitForLoadingChange(result, false)
+    expect(result.current.loading).toBeFalsy()
+
+    // Disable again
+    rerender(false)
+    expect(result.current.loading).toBeFalsy()
+  })
+
+  test('should work with enabled and selector changes', async () => {
+    await createDocs()
+
+    const { result, rerender } = renderHook(
+      ({ enabled, minId }: { enabled: boolean; minId: string }) =>
+        useFind({
+          selector: { _id: { $gte: minId } },
+          sort: ['_id'],
+          enabled,
+        }),
+      {
+        initialProps: { enabled: false, minId: 'DS9' },
+        pouchdb: myPouch,
+      },
+    )
+
+    // Initially disabled
+    expect(result.current.docs).toEqual([])
+
+    // Enable with same selector
+    rerender({ enabled: true, minId: 'DS9' })
+    await waitForLoadingChange(result, false)
+    expect(result.current.docs).toHaveLength(5)
+
+    // Change selector while enabled
+    rerender({ enabled: true, minId: 'TNG' })
+    await waitForLoadingChange(result, false)
+    expect(result.current.docs).toHaveLength(3)
+
+    // Disable
+    rerender({ enabled: false, minId: 'TNG' })
+    expect(result.current.loading).toBeFalsy()
+    expect(result.current.docs).toHaveLength(3)
+  })
+
+  test('should work with enabled and index options', async () => {
+    await createDocs()
+
+    await myPouch.createIndex({
+      index: {
+        fields: ['captain'],
+      },
+    })
+
+    const { result, rerender } = renderHook(
+      (enabled: boolean) =>
+        useFind({
+          index: {
+            fields: ['captain'],
+          },
+          selector: {
+            captain: { $gt: null },
+          },
+          sort: ['captain'],
+          enabled,
+        }),
+      {
+        initialProps: false,
+        pouchdb: myPouch,
+      },
+    )
+
+    // Initially disabled
+    expect(result.current.docs).toEqual([])
+
+    // Enable
+    rerender(true)
+    await waitForLoadingChange(result, false)
+    expect(result.current.docs).toHaveLength(5)
+    expect(result.current.warning).toBeFalsy()
+
+    // Disable
+    rerender(false)
+    expect(result.current.docs).toHaveLength(5)
+  })
+
+  test('should work with enabled and populate', async () => {
+    // Setup test data
+    await myPouch.put({
+      _id: 'site_1',
+      type: 'site',
+      name: 'Tech Blog',
+    })
+
+    await myPouch.put({
+      _id: 'post_1',
+      type: 'post',
+      title: 'First Post',
+      site_id: 'site_1',
+    })
+
+    const { result, rerender } = renderHook(
+      (enabled: boolean) =>
+        useFind({
+          selector: { type: 'post' },
+          populate: {
+            site_id: { as: 'site' },
+          },
+          enabled,
+        }),
+      {
+        initialProps: false,
+        pouchdb: myPouch,
+      },
+    )
+
+    // Initially disabled
+    expect(result.current.docs).toEqual([])
+
+    // Enable
+    rerender(true)
+    await waitForNextUpdate(result)
+
+    expect(result.current.docs).toHaveLength(1)
+    const doc = result.current.docs[0] as { site?: { name: string } }
+    expect(doc.site).toBeDefined()
+    expect(doc.site?.name).toBe('Tech Blog')
+
+    // Disable
+    rerender(false)
+    expect(result.current.docs).toHaveLength(1)
+  })
+})

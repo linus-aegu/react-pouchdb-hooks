@@ -1,6 +1,6 @@
 {
   "name": "@aegu/react-pouchdb-hooks",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "description": "React Hooks for PouchDB",
   "main": "lib/node/index.js",
   "private": false,

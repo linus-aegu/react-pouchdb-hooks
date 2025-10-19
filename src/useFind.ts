@@ -130,26 +130,24 @@ export default function useFind<Content extends Record<string, unknown>>(
     }),
   )
 
-  // Track if we've dispatched for disabled state to prevent infinite loops
-  // BUGFIX: Without this ref, adding state to dependencies causes infinite re-renders
-  const hasDispatchedForDisabled = useRef(false)
+  // Track if we've ever executed the query (to differentiate initial mount vs toggle)
+  const hasEverBeenEnabled = useRef(false)
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   // Individual options are captured by queryKey for performance optimization
   useEffect(() => {
     // Early return when query is disabled - no fetching, no subscriptions
     if (!enabled) {
-      // Only dispatch once when disabled to clear loading state
-      // This prevents stuck loading on initial mount or mid-query disable
-      if (!hasDispatchedForDisabled.current) {
+      // On initial mount with enabled=false, clear loading state once
+      // On toggle from enabled to disabled, preserve state (React Query pattern)
+      if (!hasEverBeenEnabled.current) {
         dispatch({ type: 'loading_finished', payload: { docs: [] } })
-        hasDispatchedForDisabled.current = true
       }
       return () => {} // No-op cleanup
     }
 
-    // Reset the flag when query becomes enabled again
-    hasDispatchedForDisabled.current = false
+    // Mark that we've been enabled at least once
+    hasEverBeenEnabled.current = true
 
     let isActive = true
     let isFetching = false
