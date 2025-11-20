@@ -2132,3 +2132,689 @@ describe('Field Selection Functionality', () => {
     )
   })
 })
+
+describe('Foreign Key Population (Non-ID Lookups)', () => {
+  let db: PouchDB.Database
+  let mockContext: {
+    pouchdb: PouchDB.Database
+    subscriptionManager: MockSubscriptionManager
+  }
+
+  interface TestCultivar {
+    _id: string
+    _rev: string
+    type: 'cultivar'
+    cultivar_base_code: string
+    cutting_form_id?: string
+    name: string
+    color: string
+  }
+
+  interface TestOrder {
+    _id: string
+    _rev: string
+    type: 'order'
+    material_info: {
+      cultivar_id: string // Contains base code, not _id
+      quantity: number
+    }
+  }
+
+  beforeEach(async () => {
+    db = new PouchDB('test-foreign-key', { adapter: 'memory' })
+
+    // Install pouchdb-find plugin
+    const findPlugin = require('pouchdb-find')
+    PouchDB.plugin(findPlugin)
+    db = new PouchDB('test-foreign-key', { adapter: 'memory' })
+
+    mockContext = {
+      pouchdb: db,
+      subscriptionManager: {
+        subscribeToDocs: jest.fn(() => jest.fn()),
+        subscribeToView: jest.fn(() => jest.fn()),
+        unsubscribeAll: jest.fn(),
+      },
+    }
+
+    // Create index for cultivar_base_code
+    await db.createIndex({
+      index: {
+        fields: ['cultivar_base_code'],
+        name: 'idx_cultivar_base_code',
+        ddoc: 'ddoc_cultivar',
+      },
+    })
+
+    // Create test cultivars with base codes
+    await db.put({
+      _id: 'cultivar_4A_form1',
+      type: 'cultivar',
+      cultivar_base_code: '4A',
+      cutting_form_id: 'form1',
+      name: 'Pink Mandevilla - Form 1',
+      color: 'pink',
+    } as TestCultivar)
+
+    await db.put({
+      _id: 'cultivar_4A_form2',
+      type: 'cultivar',
+      cultivar_base_code: '4A',
+      cutting_form_id: 'form2',
+      name: 'Pink Mandevilla - Form 2',
+      color: 'pink',
+    } as TestCultivar)
+
+    await db.put({
+      _id: 'cultivar_5B_form1',
+      type: 'cultivar',
+      cultivar_base_code: '5B',
+      cutting_form_id: 'form1',
+      name: 'Red Petunia',
+      color: 'red',
+    } as TestCultivar)
+  })
+
+  afterEach(async () => {
+    await db.destroy()
+  })
+
+  it('should populate using custom query function', async () => {
+    const documents = [
+      {
+        _id: 'order_1',
+        _rev: '1-abc',
+        type: 'order',
+        material_info: {
+          cultivar_id: '4A', // Base code, not _id
+          quantity: 100,
+        },
+      },
+    ] as TestOrder[]
+
+    const populateConfig: PopulateConfig = {
+      'material_info.cultivar_id': {
+        as: 'cultivar',
+        query: (values: string[]) => ({
+          selector: { cultivar_base_code: { $in: values } },
+          use_index: ['ddoc_cultivar', 'idx_cultivar_base_code'],
+        }),
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext,
+    )
+
+    expect(result).toHaveLength(1)
+    const order = result[0] as any
+
+    // Should populate with cultivar data (array because multiple matches)
+    expect(order.cultivar).toBeDefined()
+    expect(Array.isArray(order.cultivar)).toBe(true)
+    expect(order.cultivar).toHaveLength(2)
+
+    // Should include both cultivars with base code "4A"
+    expect(order.cultivar).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          _id: 'cultivar_4A_form1',
+          cultivar_base_code: '4A',
+          name: 'Pink Mandevilla - Form 1',
+        }),
+        expect.objectContaining({
+          _id: 'cultivar_4A_form2',
+          cultivar_base_code: '4A',
+          name: 'Pink Mandevilla - Form 2',
+        }),
+      ]),
+    )
+
+    // Original field should remain unchanged
+    expect(order.material_info.cultivar_id).toBe('4A')
+  })
+
+  it('should return single document when only one match exists', async () => {
+    const documents = [
+      {
+        _id: 'order_2',
+        _rev: '1-abc',
+        type: 'order',
+        material_info: {
+          cultivar_id: '5B', // Base code with only one cultivar
+          quantity: 50,
+        },
+      },
+    ] as TestOrder[]
+
+    const populateConfig: PopulateConfig = {
+      'material_info.cultivar_id': {
+        as: 'cultivar',
+        query: (values: string[]) => ({
+          selector: { cultivar_base_code: { $in: values } },
+          use_index: ['ddoc_cultivar', 'idx_cultivar_base_code'],
+        }),
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext,
+    )
+
+    expect(result).toHaveLength(1)
+    const order = result[0] as any
+
+    // Should return single document, not array
+    expect(order.cultivar).toBeDefined()
+    expect(Array.isArray(order.cultivar)).toBe(false)
+    expect(order.cultivar).toMatchObject({
+      _id: 'cultivar_5B_form1',
+      cultivar_base_code: '5B',
+      name: 'Red Petunia',
+      color: 'red',
+    })
+  })
+
+  it('should handle mixed ID-based and query-based population', async () => {
+    // Create a regular user document for ID-based lookup
+    await db.put({
+      _id: 'user_123',
+      type: 'user',
+      name: 'John Doe',
+      email: 'john@example.com',
+    })
+
+    const documents = [
+      {
+        _id: 'order_3',
+        _rev: '1-abc',
+        type: 'order',
+        material_info: {
+          cultivar_id: '4A', // Query-based (base code)
+          quantity: 75,
+        },
+        user_id: 'user_123', // ID-based
+      },
+    ]
+
+    const populateConfig: PopulateConfig = {
+      'material_info.cultivar_id': {
+        as: 'cultivar',
+        query: (values: string[]) => ({
+          selector: { cultivar_base_code: { $in: values } },
+          use_index: ['ddoc_cultivar', 'idx_cultivar_base_code'],
+        }),
+      },
+      user_id: {
+        as: 'user', // Regular ID-based populate
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext,
+    )
+
+    expect(result).toHaveLength(1)
+    const order = result[0] as any
+
+    // Query-based should return array
+    expect(Array.isArray(order.cultivar)).toBe(true)
+    expect(order.cultivar).toHaveLength(2)
+
+    // ID-based should return single document
+    expect(order.user).toMatchObject({
+      _id: 'user_123',
+      name: 'John Doe',
+      email: 'john@example.com',
+    })
+  })
+
+  it('should handle bulk query-based population efficiently', async () => {
+    const findSpy = jest.spyOn(db, 'find')
+
+    const documents = [
+      {
+        _id: 'order_1',
+        _rev: '1-abc',
+        type: 'order',
+        material_info: {
+          cultivar_id: '4A',
+          quantity: 100,
+        },
+      },
+      {
+        _id: 'order_2',
+        _rev: '1-def',
+        type: 'order',
+        material_info: {
+          cultivar_id: '5B',
+          quantity: 50,
+        },
+      },
+      {
+        _id: 'order_3',
+        _rev: '1-ghi',
+        type: 'order',
+        material_info: {
+          cultivar_id: '4A', // Duplicate - should be deduplicated
+          quantity: 75,
+        },
+      },
+    ] as TestOrder[]
+
+    const populateConfig: PopulateConfig = {
+      'material_info.cultivar_id': {
+        as: 'cultivar',
+        query: (values: string[]) => ({
+          selector: { cultivar_base_code: { $in: values } },
+          use_index: ['ddoc_cultivar', 'idx_cultivar_base_code'],
+        }),
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext,
+    )
+
+    // Should make only 1 find call with all unique base codes
+    expect(findSpy).toHaveBeenCalledTimes(1)
+    expect(findSpy.mock.calls[0][0].selector).toEqual({
+      cultivar_base_code: { $in: expect.arrayContaining(['4A', '5B']) },
+    })
+
+    // Should deduplicate "4A" (appears in order_1 and order_3)
+    const queryValues = findSpy.mock.calls[0][0].selector.cultivar_base_code.$in
+    expect(queryValues).toHaveLength(2) // Only unique values: 4A, 5B
+
+    // All orders should have cultivar populated
+    expect(result).toHaveLength(3)
+    expect(result[0].cultivar).toBeDefined()
+    expect(result[1].cultivar).toBeDefined()
+    expect(result[2].cultivar).toBeDefined()
+
+    // Orders 1 and 3 should have same cultivar data (same base code)
+    expect(result[0].cultivar).toEqual(result[2].cultivar)
+  })
+
+  it('should apply field selection to query-based population', async () => {
+    const documents = [
+      {
+        _id: 'order_1',
+        _rev: '1-abc',
+        type: 'order',
+        material_info: {
+          cultivar_id: '5B',
+          quantity: 100,
+        },
+      },
+    ] as TestOrder[]
+
+    const populateConfig: PopulateConfig = {
+      'material_info.cultivar_id': {
+        as: 'cultivar',
+        fields: ['name', 'color'], // Only select specific fields
+        query: (values: string[]) => ({
+          selector: { cultivar_base_code: { $in: values } },
+          use_index: ['ddoc_cultivar', 'idx_cultivar_base_code'],
+        }),
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext,
+    )
+
+    expect(result).toHaveLength(1)
+    const order = result[0] as any
+
+    // Should include only specified fields (plus _id and _rev)
+    expect(order.cultivar).toEqual({
+      _id: 'cultivar_5B_form1',
+      _rev: expect.any(String),
+      name: 'Red Petunia',
+      color: 'red',
+    })
+
+    // Should not include other fields
+    expect(order.cultivar).not.toHaveProperty('cultivar_base_code')
+    expect(order.cultivar).not.toHaveProperty('cutting_form_id')
+    expect(order.cultivar).not.toHaveProperty('type')
+  })
+
+  it('should handle query-based population with array results and field selection', async () => {
+    const documents = [
+      {
+        _id: 'order_1',
+        _rev: '1-abc',
+        type: 'order',
+        material_info: {
+          cultivar_id: '4A', // Multiple matches
+          quantity: 100,
+        },
+      },
+    ] as TestOrder[]
+
+    const populateConfig: PopulateConfig = {
+      'material_info.cultivar_id': {
+        as: 'cultivar',
+        fields: ['name', 'cutting_form_id'],
+        query: (values: string[]) => ({
+          selector: { cultivar_base_code: { $in: values } },
+          use_index: ['ddoc_cultivar', 'idx_cultivar_base_code'],
+        }),
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext,
+    )
+
+    expect(result).toHaveLength(1)
+    const order = result[0] as any
+
+    // Should be array with field selection applied to each element
+    expect(Array.isArray(order.cultivar)).toBe(true)
+    expect(order.cultivar).toHaveLength(2)
+
+    order.cultivar.forEach((cultivar: any) => {
+      // Each should have only selected fields
+      expect(cultivar).toHaveProperty('_id')
+      expect(cultivar).toHaveProperty('_rev')
+      expect(cultivar).toHaveProperty('name')
+      expect(cultivar).toHaveProperty('cutting_form_id')
+
+      // Should not have other fields
+      expect(cultivar).not.toHaveProperty('color')
+      expect(cultivar).not.toHaveProperty('cultivar_base_code')
+      expect(cultivar).not.toHaveProperty('type')
+    })
+  })
+
+  it('should handle query failure gracefully', async () => {
+    const documents = [
+      {
+        _id: 'order_1',
+        _rev: '1-abc',
+        type: 'order',
+        material_info: {
+          cultivar_id: '4A',
+          quantity: 100,
+        },
+      },
+    ] as TestOrder[]
+
+    const populateConfig: PopulateConfig = {
+      'material_info.cultivar_id': {
+        as: 'cultivar',
+        query: (values: string[]) => ({
+          selector: { cultivar_base_code: { $in: values } },
+          use_index: ['ddoc_cultivar', 'idx_cultivar_base_code'],
+        }),
+      },
+    }
+
+    // Mock find to throw error
+    const mockErrorContext = {
+      pouchdb: {
+        ...db,
+        find: jest.fn().mockRejectedValue(new Error('Database query error')),
+      },
+      subscriptionManager: mockContext.subscriptionManager,
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockErrorContext as typeof mockContext,
+    )
+
+    // Should not populate the field, but document should still be returned
+    expect(result).toHaveLength(1)
+    expect(result[0]).not.toHaveProperty('cultivar')
+
+    // Original data should be unchanged
+    expect((result[0] as any).material_info.cultivar_id).toBe('4A')
+  })
+
+  it('should handle nested populate with query-based references', async () => {
+    // Create supplier documents with indexed field
+    await db.createIndex({
+      index: {
+        fields: ['cultivar_base_code'],
+        name: 'idx_supplier_base_code',
+        ddoc: 'ddoc_supplier',
+      },
+    })
+
+    await db.put({
+      _id: 'supplier_s1',
+      type: 'supplier',
+      supplier_code: 'SUP001',
+      name: 'Green Thumb Supplies',
+      cultivar_base_code: '5B', // Match cultivar_5B_form1
+    })
+
+    const documents = [
+      {
+        _id: 'order_1',
+        _rev: '1-abc',
+        type: 'order',
+        material_info: {
+          cultivar_id: '5B', // Query-based
+          quantity: 100,
+        },
+      },
+    ]
+
+    // First populate cultivar, then populate supplier from cultivar
+    const populateConfig: PopulateConfig = {
+      'material_info.cultivar_id': {
+        as: 'cultivar',
+        query: (values: string[]) => ({
+          selector: {
+            cultivar_base_code: { $in: values },
+            type: 'cultivar', // Filter by type to avoid matching suppliers
+          },
+          use_index: ['ddoc_cultivar', 'idx_cultivar_base_code'],
+        }),
+        populate: {
+          cultivar_base_code: {
+            as: 'supplier',
+            query: (values: string[]) => ({
+              selector: {
+                cultivar_base_code: { $in: values },
+                type: 'supplier', // Filter by type to avoid matching cultivars
+              },
+              use_index: ['ddoc_supplier', 'idx_supplier_base_code'],
+            }),
+          },
+        },
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext,
+    )
+
+    expect(result).toHaveLength(1)
+    const order = result[0] as any
+
+    // Cultivar should be populated
+    expect(order.cultivar).toBeDefined()
+    expect(order.cultivar.cultivar_base_code).toBe('5B')
+
+    // Nested supplier should also be populated
+    expect(order.cultivar.supplier).toBeDefined()
+    expect(order.cultivar.supplier).toMatchObject({
+      _id: 'supplier_s1',
+      name: 'Green Thumb Supplies',
+      supplier_code: 'SUP001',
+    })
+  })
+
+  it('should log performance information for query-based population in development mode', async () => {
+    const originalEnv = process.env.NODE_ENV
+    process.env.NODE_ENV = 'development'
+
+    const consoleSpy = jest.spyOn(console, 'debug').mockImplementation()
+
+    const documents = [
+      {
+        _id: 'order_1',
+        _rev: '1-abc',
+        type: 'order',
+        material_info: {
+          cultivar_id: '4A',
+          quantity: 100,
+        },
+      },
+    ] as TestOrder[]
+
+    const populateConfig: PopulateConfig = {
+      'material_info.cultivar_id': {
+        as: 'cultivar',
+        query: (values: string[]) => ({
+          selector: { cultivar_base_code: { $in: values } },
+          use_index: ['ddoc_cultivar', 'idx_cultivar_base_code'],
+        }),
+      },
+    }
+
+    await populateDocuments(documents, populateConfig, mockContext)
+
+    // Should log performance with reference count
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /Populate \[material_info\.cultivar_id\] took \d+ms for 1 docs, fetched \d+ refs/,
+      ),
+    )
+
+    consoleSpy.mockRestore()
+    process.env.NODE_ENV = originalEnv
+  })
+
+  it('should handle empty query results gracefully', async () => {
+    const documents = [
+      {
+        _id: 'order_1',
+        _rev: '1-abc',
+        type: 'order',
+        material_info: {
+          cultivar_id: 'NONEXISTENT', // No cultivar with this base code
+          quantity: 100,
+        },
+      },
+    ] as TestOrder[]
+
+    const populateConfig: PopulateConfig = {
+      'material_info.cultivar_id': {
+        as: 'cultivar',
+        query: (values: string[]) => ({
+          selector: { cultivar_base_code: { $in: values } },
+          use_index: ['ddoc_cultivar', 'idx_cultivar_base_code'],
+        }),
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext,
+    )
+
+    expect(result).toHaveLength(1)
+    const order = result[0] as any
+
+    // Should not have cultivar field (no results found)
+    expect(order).not.toHaveProperty('cultivar')
+
+    // Original data unchanged
+    expect(order.material_info.cultivar_id).toBe('NONEXISTENT')
+  })
+
+  it('should prevent circular references in query-based population', async () => {
+    // Create circular reference scenario
+    await db.put({
+      _id: 'entity_a',
+      type: 'entity',
+      code: 'A',
+      related_code: 'B',
+    })
+
+    await db.put({
+      _id: 'entity_b',
+      type: 'entity',
+      code: 'B',
+      related_code: 'A',
+    })
+
+    await db.createIndex({
+      index: {
+        fields: ['code'],
+        name: 'idx_code',
+        ddoc: 'ddoc_entity',
+      },
+    })
+
+    const documents = [
+      {
+        _id: 'doc_1',
+        _rev: '1-abc',
+        entity_code: 'A',
+      },
+    ]
+
+    const populateConfig: PopulateConfig = {
+      entity_code: {
+        as: 'entity',
+        query: (values: string[]) => ({
+          selector: { code: { $in: values } },
+          use_index: ['ddoc_entity', 'idx_code'],
+        }),
+        populate: {
+          related_code: {
+            as: 'related',
+            query: (values: string[]) => ({
+              selector: { code: { $in: values } },
+              use_index: ['ddoc_entity', 'idx_code'],
+            }),
+          },
+        },
+      },
+    }
+
+    const result = await populateDocuments(
+      documents,
+      populateConfig,
+      mockContext,
+    )
+
+    expect(result).toHaveLength(1)
+    const doc = result[0] as any
+
+    // Entity A should be populated
+    expect(doc.entity).toBeDefined()
+    expect(doc.entity.code).toBe('A')
+
+    // Related entity B should be populated
+    expect(doc.entity.related).toBeDefined()
+    expect(doc.entity.related.code).toBe('B')
+
+    // But the circular reference (B -> A) should not be populated
+    expect(doc.entity.related.related).toBeUndefined()
+  })
+})

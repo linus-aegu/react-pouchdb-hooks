@@ -4,8 +4,7 @@ import { MISSING_DOC } from 'pouchdb-errors'
 import { useContext } from './context'
 import type SubscriptionManager from './subscription'
 import useStateMachine, { ResultType, Dispatch } from './state-machine'
-import { useDeepMemo, CommonOptions } from './utils'
-import { populateDocuments } from './usePopulate'
+import { useDeepMemo, CommonOptions, applyPopulateToView } from './utils'
 import type { PopulateConfig, PopulateOptions } from './populate-types'
 import { QueryKeyOptions, useQueryKey } from './query-key'
 
@@ -266,55 +265,18 @@ function doDDocQuery<
       const result = await pouch.query(fn, option)
       if (!isMounted) return
 
-      // Apply populate if configured and include_docs is true
-      if (populate && option?.include_docs && result.rows) {
-        try {
-          const docsToPopulate = result.rows.map(row => row.doc).filter(Boolean)
-
-          if (docsToPopulate.length > 0) {
-            const populatedDocs = await populateDocuments(
-              docsToPopulate as Record<string, unknown>[],
-              populate,
-              { pouchdb: pouch, subscriptionManager },
-              { maxDepth: option?.maxDepth },
-            )
-
-            // Update rows with populated documents
-            const populatedRows = result.rows.map((row, index) => ({
-              ...row,
-              doc: row.doc
-                ? (populatedDocs[index] as PouchDB.Core.ExistingDocument<
-                    Result & PouchDB.Core.AllDocsMeta
-                  >) || row.doc
-                : row.doc,
-            }))
-
-            dispatch({
-              type: 'loading_finished',
-              payload: {
-                ...result,
-                rows: populatedRows,
-              },
-            })
-          } else {
-            dispatch({
-              type: 'loading_finished',
-              payload: result,
-            })
-          }
-        } catch (populateError) {
-          // Fallback to original result if populate fails
-          dispatch({
-            type: 'loading_finished',
-            payload: result,
-          })
-        }
-      } else {
-        dispatch({
-          type: 'loading_finished',
-          payload: result,
-        })
-      }
+      // Apply populate if configured - let errors propagate
+      const populatedResult = await applyPopulateToView(
+        result,
+        populate,
+        option?.include_docs,
+        { pouchdb: pouch, subscriptionManager },
+        { maxDepth: option?.maxDepth },
+      )
+      dispatch({
+        type: 'loading_finished',
+        payload: populatedResult,
+      })
 
       const ids = new Set<PouchDB.Core.DocumentId>()
       for (const row of result.rows) {
@@ -420,55 +382,18 @@ function doTemporaryQuery<
       const result = await pouch.query(fn, option)
       if (!isMounted) return
 
-      // Apply populate if configured and include_docs is true
-      if (populate && option?.include_docs && result.rows) {
-        try {
-          const docsToPopulate = result.rows.map(row => row.doc).filter(Boolean)
-
-          if (docsToPopulate.length > 0) {
-            const populatedDocs = await populateDocuments(
-              docsToPopulate as Record<string, unknown>[],
-              populate,
-              { pouchdb: pouch, subscriptionManager },
-              { maxDepth: option?.maxDepth },
-            )
-
-            // Update rows with populated documents
-            const populatedRows = result.rows.map((row, index) => ({
-              ...row,
-              doc: row.doc
-                ? (populatedDocs[index] as PouchDB.Core.ExistingDocument<
-                    Result & PouchDB.Core.AllDocsMeta
-                  >) || row.doc
-                : row.doc,
-            }))
-
-            dispatch({
-              type: 'loading_finished',
-              payload: {
-                ...result,
-                rows: populatedRows,
-              },
-            })
-          } else {
-            dispatch({
-              type: 'loading_finished',
-              payload: result,
-            })
-          }
-        } catch (populateError) {
-          // Fallback to original result if populate fails
-          dispatch({
-            type: 'loading_finished',
-            payload: result,
-          })
-        }
-      } else {
-        dispatch({
-          type: 'loading_finished',
-          payload: result,
-        })
-      }
+      // Apply populate if configured - let errors propagate
+      const populatedResult = await applyPopulateToView(
+        result,
+        populate,
+        option?.include_docs,
+        { pouchdb: pouch, subscriptionManager },
+        { maxDepth: option?.maxDepth },
+      )
+      dispatch({
+        type: 'loading_finished',
+        payload: populatedResult,
+      })
 
       const ids = new Set<PouchDB.Core.DocumentId | null>()
       for (const row of result.rows) {

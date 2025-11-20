@@ -71,9 +71,7 @@ export default class SubscriptionManager {
     callback: DocsCallback<T>,
   ): () => void {
     if (this.#didUnsubscribeAll) {
-      return () => {
-        return
-      }
+      return () => {}
     }
 
     if (this.#docsSubscription == null) {
@@ -131,9 +129,7 @@ export default class SubscriptionManager {
 
   subscribeToView(fun: string, callback: ViewCallback): () => void {
     if (this.#didUnsubscribeAll) {
-      return () => {
-        return
-      }
+      return () => {}
     }
 
     let subscription: SubscriptionToAView
@@ -238,35 +234,7 @@ function createDocSubscription(
           // Start batching timer for subsequent changes
           docsSubscription.batchTimeout = setTimeout(() => {
             if (docsSubscription) {
-              const changesToProcess = Array.from(
-                docsSubscription.pendingChanges.values(),
-              )
-              docsSubscription.pendingChanges.clear()
-              docsSubscription.batchTimeout = null
-
-              for (const pendingChange of changesToProcess) {
-                const hasAll = docsSubscription.all.size > 0
-                const idSubscriptions = docsSubscription.ids.get(
-                  pendingChange.id,
-                )
-
-                if (hasAll) {
-                  notify(
-                    docsSubscription.all,
-                    pendingChange.deleted,
-                    pendingChange.id,
-                    pendingChange.doc,
-                  )
-                }
-                if (idSubscriptions) {
-                  notify(
-                    idSubscriptions,
-                    pendingChange.deleted,
-                    pendingChange.id,
-                    pendingChange.doc,
-                  )
-                }
-              }
+              processPendingBatch(docsSubscription)
             }
           }, batchDelay) as NodeJS.Timeout
 
@@ -287,35 +255,7 @@ function createDocSubscription(
         if (!docsSubscription.batchTimeout && !leadingEdge) {
           docsSubscription.batchTimeout = setTimeout(() => {
             if (docsSubscription) {
-              const changesToProcess = Array.from(
-                docsSubscription.pendingChanges.values(),
-              )
-              docsSubscription.pendingChanges.clear()
-              docsSubscription.batchTimeout = null
-
-              for (const pendingChange of changesToProcess) {
-                const hasAll = docsSubscription.all.size > 0
-                const idSubscriptions = docsSubscription.ids.get(
-                  pendingChange.id,
-                )
-
-                if (hasAll) {
-                  notify(
-                    docsSubscription.all,
-                    pendingChange.deleted,
-                    pendingChange.id,
-                    pendingChange.doc,
-                  )
-                }
-                if (idSubscriptions) {
-                  notify(
-                    idSubscriptions,
-                    pendingChange.deleted,
-                    pendingChange.id,
-                    pendingChange.doc,
-                  )
-                }
-              }
+              processPendingBatch(docsSubscription)
             }
           }, batchDelay) as NodeJS.Timeout
         }
@@ -353,6 +293,41 @@ function createDocSubscription(
   return docsSubscription
 }
 
+/**
+ * Process pending batch changes and notify subscribers
+ */
+function processPendingBatch(docsSubscription: DocsSubscription): void {
+  const changesToProcess = Array.from(docsSubscription.pendingChanges.values())
+  docsSubscription.pendingChanges.clear()
+  docsSubscription.batchTimeout = null
+
+  for (const pendingChange of changesToProcess) {
+    const hasAll = docsSubscription.all.size > 0
+    const idSubscriptions = docsSubscription.ids.get(pendingChange.id)
+
+    if (hasAll) {
+      notify(
+        docsSubscription.all,
+        pendingChange.deleted,
+        pendingChange.id,
+        pendingChange.doc,
+      )
+    }
+    if (idSubscriptions) {
+      notify(
+        idSubscriptions,
+        pendingChange.deleted,
+        pendingChange.id,
+        pendingChange.doc,
+      )
+    }
+  }
+}
+
+/**
+ * Notify all subscribers in the set.
+ * Errors from callbacks are allowed to propagate - callbacks should handle their own errors.
+ */
 function notify(
   set: Set<DocsCallback<Record<string, unknown>>>,
   deleted: boolean,
@@ -360,12 +335,8 @@ function notify(
   doc?: PouchDB.Core.Document<Record<string, unknown>>,
 ) {
   for (const subscription of set) {
-    try {
-      const document = doc ? clone(doc) : undefined
-      subscription(deleted, id, document)
-    } catch (err) {
-      console.error(err)
-    }
+    const document = doc ? clone(doc) : undefined
+    subscription(deleted, id, document)
   }
 }
 
@@ -383,12 +354,9 @@ function subscribeToView(
       view,
     })
     .on('change', change => {
+      // Let callback errors propagate - callbacks should handle their own errors
       for (const callback of viewsSubscription?.callbacks ?? []) {
-        try {
-          callback(change.id)
-        } catch (err) {
-          console.error(err)
-        }
+        callback(change.id)
       }
     })
 

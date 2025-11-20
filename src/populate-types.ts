@@ -15,6 +15,25 @@ export interface PopulateFieldConfig {
    * Special fields (_id, _rev) are always included for document integrity.
    */
   fields?: string[]
+  /**
+   * Custom query function for non-_id lookups (foreign key support).
+   * When provided, uses indexed db.find() instead of direct allDocs() lookup.
+   *
+   * @param values - Array of reference values from source documents
+   * @returns Query configuration for db.find()
+   *
+   * @example
+   * // Populate by indexed field instead of _id
+   * query: (values) => ({
+   *   selector: { cultivar_base_code: { $in: values } },
+   *   use_index: ['ddoc_cultivar', 'idx_cultivar_base_code']
+   * })
+   */
+  query?: (values: string[]) => {
+    selector: PouchDB.Find.Selector
+    limit?: number
+    use_index?: string | [string, string]
+  }
 }
 
 /**

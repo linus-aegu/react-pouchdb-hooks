@@ -3,7 +3,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import { useContext } from './context'
 import useStateMachine, { ResultType } from './state-machine'
 import type { CommonOptions } from './utils'
-import { populateDocuments } from './usePopulate'
+import { applyPopulateToDoc } from './utils'
 
 type DocResultType<T extends Record<string, unknown>> = ResultType<{
   doc: (PouchDB.Core.Document<T> & PouchDB.Core.GetMeta) | null
@@ -40,14 +40,7 @@ export default function useDoc<Content extends Record<string, unknown>>(
 
     const resultDoc = doc as Document
 
-    // Add _id and _rev to the initial value (if they aren't set)
-    if (resultDoc && resultDoc._id == null) {
-      resultDoc._id = id
-    }
-    if (resultDoc && resultDoc._rev == null) {
-      resultDoc._rev = ''
-    }
-
+    // DECISION: Don't add defaults - if initial value is malformed, let it fail
     return { doc: resultDoc }
   }, [id, initialValue])
 
@@ -91,32 +84,17 @@ export default function useDoc<Content extends Record<string, unknown>>(
         })
 
         if (isMounted) {
-          // Apply populate if configured
-          if (populate && doc) {
-            try {
-              const populatedDocs = await populateDocuments(
-                [doc as Record<string, unknown>],
-                populate,
-                { pouchdb: pouch, subscriptionManager },
-                { maxDepth: options?.maxDepth },
-              )
-              dispatch({
-                type: 'loading_finished',
-                payload: { doc: (populatedDocs[0] as Document) || doc },
-              })
-            } catch (populateError) {
-              // Fallback to original doc if populate fails
-              dispatch({
-                type: 'loading_finished',
-                payload: { doc },
-              })
-            }
-          } else {
-            dispatch({
-              type: 'loading_finished',
-              payload: { doc },
-            })
-          }
+          // Apply populate if configured - let errors propagate
+          const populatedDoc = await applyPopulateToDoc(
+            doc,
+            populate,
+            { pouchdb: pouch, subscriptionManager },
+            { maxDepth: options?.maxDepth },
+          )
+          dispatch({
+            type: 'loading_finished',
+            payload: { doc: populatedDoc as Document },
+          })
         }
       } catch (err) {
         if (isMounted) {
@@ -150,39 +128,22 @@ export default function useDoc<Content extends Record<string, unknown>>(
             } else {
               const docToDispatch = doc as Document
 
-              // Apply populate if configured
-              if (populate && docToDispatch) {
-                populateDocuments(
-                  [docToDispatch as Record<string, unknown>],
-                  populate,
-                  { pouchdb: pouch, subscriptionManager },
-                  { maxDepth: options?.maxDepth },
-                )
-                  .then(populatedDocs => {
-                    if (isMounted) {
-                      dispatch({
-                        type: 'loading_finished',
-                        payload: {
-                          doc: (populatedDocs[0] as Document) || docToDispatch,
-                        },
-                      })
-                    }
+              // Apply populate if configured - let errors propagate
+              applyPopulateToDoc(
+                docToDispatch,
+                populate,
+                { pouchdb: pouch, subscriptionManager },
+                { maxDepth: options?.maxDepth },
+              ).then(populatedDoc => {
+                if (isMounted) {
+                  dispatch({
+                    type: 'loading_finished',
+                    payload: {
+                      doc: populatedDoc as Document,
+                    },
                   })
-                  .catch(() => {
-                    // Fallback to original doc if populate fails
-                    if (isMounted) {
-                      dispatch({
-                        type: 'loading_finished',
-                        payload: { doc: docToDispatch },
-                      })
-                    }
-                  })
-              } else {
-                dispatch({
-                  type: 'loading_finished',
-                  payload: { doc: docToDispatch },
-                })
-              }
+                }
+              })
             }
           })
 

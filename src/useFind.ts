@@ -4,8 +4,7 @@ import { matchesSelector } from 'pouchdb-selector-core'
 import { useContext } from './context'
 import type SubscriptionManager from './subscription'
 import useStateMachine, { ResultType } from './state-machine'
-import { useDeepMemo, CommonOptions } from './utils'
-import { populateDocuments } from './usePopulate'
+import { useDeepMemo, CommonOptions, applyPopulateToFind } from './utils'
 import { QueryKeyOptions, useQueryKey } from './query-key'
 
 /**
@@ -216,30 +215,14 @@ export default function useFind<Content extends Record<string, unknown>>(
             }
           }
 
-          // Apply populate if configured
-          if (populate && result.docs.length > 0) {
-            try {
-              const populatedDocs = await populateDocuments(
-                result.docs as Record<string, unknown>[],
-                populate,
-                { pouchdb: pouch, subscriptionManager },
-                { maxDepth: stableOptions?.maxDepth },
-              )
-
-              dispatch({
-                type: 'loading_finished',
-                payload: {
-                  ...result,
-                  docs: populatedDocs as PouchDB.Core.ExistingDocument<Content>[],
-                },
-              })
-            } catch (populateError) {
-              // Fallback to original result if populate fails
-              dispatch({ type: 'loading_finished', payload: result })
-            }
-          } else {
-            dispatch({ type: 'loading_finished', payload: result })
-          }
+          // Apply populate if configured - let errors propagate
+          const populatedResult = await applyPopulateToFind(
+            result,
+            populate,
+            { pouchdb: pouch, subscriptionManager },
+            { maxDepth: stableOptions?.maxDepth },
+          )
+          dispatch({ type: 'loading_finished', payload: populatedResult })
         }
       } catch (error) {
         if (isActive) {

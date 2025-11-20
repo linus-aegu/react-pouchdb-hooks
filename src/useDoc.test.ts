@@ -59,8 +59,6 @@ test('should return a default value while first loading', async () => {
   )
 
   expect(result.current.doc).toEqual({
-    _id: 'test',
-    _rev: '',
     value: 'doc',
   })
   expect(result.current.error).toBeNull()
@@ -88,8 +86,6 @@ test('should return a default value from a function while first loading', async 
   )
 
   expect(result.current.doc).toEqual({
-    _id: 'test',
-    _rev: '',
     value: 'doc',
   })
   expect(result.current.error).toBeNull()
@@ -129,8 +125,6 @@ test('should continue to return the default value in error-state', async () => {
   )
 
   expect(result.current.doc).toEqual({
-    _id: 'test',
-    _rev: '',
     other: 'doc',
   })
   expect(result.current.error).toBeNull()
@@ -139,8 +133,6 @@ test('should continue to return the default value in error-state', async () => {
   await waitForNextUpdate(result)
 
   expect(result.current.doc).toEqual({
-    _id: 'test',
-    _rev: '',
     other: 'doc',
   })
   expect(result.current.state).toBe('error')

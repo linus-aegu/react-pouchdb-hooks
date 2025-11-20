@@ -22,42 +22,31 @@ export function stableStringify(obj: unknown, visited = new WeakSet()): string {
   if (obj === undefined) return 'undefined'
   if (typeof obj !== 'object') return JSON.stringify(obj)
 
-  // Check for circular references
+  // Fail fast on circular references
   if (visited.has(obj as Record<string, unknown>)) {
-    return `{error:${Date.now()}}`
+    throw new Error(
+      'Circular reference detected in query options. This indicates a bug in option construction.',
+    )
   }
 
   if (Array.isArray(obj)) {
     visited.add(obj)
-    try {
-      const result =
-        '[' + obj.map(item => stableStringify(item, visited)).join(',') + ']'
-      visited.delete(obj)
-      return result
-    } catch (error) {
-      visited.delete(obj)
-      console.warn('Query key serialization failed, using fallback:', error)
-      return `[error:${Date.now()}]`
-    }
+    const result =
+      '[' + obj.map(item => stableStringify(item, visited)).join(',') + ']'
+    visited.delete(obj)
+    return result
   }
 
   visited.add(obj)
-  try {
-    // Sort keys for deterministic serialization
-    const sortedKeys = Object.keys(obj as Record<string, unknown>).sort()
-    const pairs = sortedKeys.map(key => {
-      const value = (obj as Record<string, unknown>)[key]
-      return JSON.stringify(key) + ':' + stableStringify(value, visited)
-    })
-    const result = '{' + pairs.join(',') + '}'
-    visited.delete(obj)
-    return result
-  } catch (error) {
-    visited.delete(obj)
-    // Handle circular references or other serialization errors
-    console.warn('Query key serialization failed, using fallback:', error)
-    return `{error:${Date.now()}}`
-  }
+  // Sort keys for deterministic serialization
+  const sortedKeys = Object.keys(obj as Record<string, unknown>).sort()
+  const pairs = sortedKeys.map(key => {
+    const value = (obj as Record<string, unknown>)[key]
+    return JSON.stringify(key) + ':' + stableStringify(value, visited)
+  })
+  const result = '{' + pairs.join(',') + '}'
+  visited.delete(obj)
+  return result
 }
 
 /**

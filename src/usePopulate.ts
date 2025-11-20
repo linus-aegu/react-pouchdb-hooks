@@ -183,32 +183,56 @@ export async function populateDocuments<T extends Record<string, unknown>>(
   }
 
   try {
-    // Collect all unique reference IDs from all documents
-    const referenceIds = new Set<string>()
+    // Categorize references into ID-based and query-based
+    const idBasedRefs = new Map<string, Set<string>>()
+    const queryBasedRefs = new Map<
+      string,
+      { config: (typeof populateConfig)[string]; values: Set<string> }
+    >()
 
+    // Initialize maps for each populate field
+    for (const [fieldName, config] of Object.entries(populateConfig)) {
+      if (config.query) {
+        queryBasedRefs.set(fieldName, { config, values: new Set() })
+      } else {
+        idBasedRefs.set(fieldName, new Set())
+      }
+    }
+
+    // Collect reference values from all documents
     for (const doc of documents) {
-      for (const [fieldName] of Object.entries(populateConfig)) {
+      for (const [fieldName, config] of Object.entries(populateConfig)) {
         // Use getNestedValue to support nested paths
-        const referenceId = getNestedValue(doc, fieldName)
-        if (referenceId && typeof referenceId === 'string') {
+        const referenceValue = getNestedValue(doc, fieldName)
+        if (referenceValue && typeof referenceValue === 'string') {
           // Prevent circular references - don't fetch if already visited
-          if (!visited.has(referenceId)) {
-            referenceIds.add(referenceId)
+          if (!visited.has(referenceValue)) {
+            if (config.query) {
+              queryBasedRefs.get(fieldName)?.values.add(referenceValue)
+            } else {
+              idBasedRefs.get(fieldName)?.add(referenceValue)
+            }
           }
         }
       }
     }
 
-    // Bulk fetch all referenced documents in one call
+    // Bulk fetch all referenced documents
     const referenceCache: Record<
       string,
-      PouchDB.Core.ExistingDocument<Record<string, unknown>>
+      | PouchDB.Core.ExistingDocument<Record<string, unknown>>
+      | PouchDB.Core.ExistingDocument<Record<string, unknown>>[]
     > = {}
 
-    if (referenceIds.size > 0) {
+    // Fetch ID-based references using allDocs (existing behavior)
+    const allIdBasedValues: string[] = []
+    for (const set of idBasedRefs.values()) {
+      allIdBasedValues.push(...Array.from(set))
+    }
+    if (allIdBasedValues.length > 0) {
       try {
         const result = await pouchdb.allDocs({
-          keys: Array.from(referenceIds),
+          keys: Array.from(new Set(allIdBasedValues)) as string[],
           include_docs: true,
         })
 
@@ -220,7 +244,60 @@ export async function populateDocuments<T extends Record<string, unknown>>(
         }
       } catch (error) {
         if (process.env.NODE_ENV === 'development') {
-          console.warn('Populate: Failed to fetch references:', error)
+          console.warn('Populate: Failed to fetch ID-based references:', error)
+        }
+      }
+    }
+
+    // Fetch query-based references using find (new behavior)
+    for (const [fieldName, { config, values }] of queryBasedRefs.entries()) {
+      if (values.size > 0 && config.query) {
+        try {
+          const uniqueValues = Array.from(values)
+          const querySpec = config.query(uniqueValues)
+
+          // Execute find query
+          const findResult = await pouchdb.find(querySpec)
+
+          // Map results back to reference values
+          // Since we don't know which field was queried, we need to inspect the selector
+          const selectorKeys = Object.keys(querySpec.selector)
+          const queryField = selectorKeys[0] // Get the field used in the query
+
+          // Group results by the query field value
+          const resultsByValue = new Map<
+            string,
+            PouchDB.Core.ExistingDocument<Record<string, unknown>>[]
+          >()
+
+          for (const doc of findResult.docs) {
+            const fieldValue = getNestedValue(
+              doc as unknown as Record<string, unknown>,
+              queryField,
+            )
+            if (fieldValue && typeof fieldValue === 'string') {
+              if (!resultsByValue.has(fieldValue)) {
+                resultsByValue.set(fieldValue, [])
+              }
+              resultsByValue
+                .get(fieldValue)
+                ?.push(
+                  doc as PouchDB.Core.ExistingDocument<Record<string, unknown>>,
+                )
+            }
+          }
+
+          // Store in cache - use array for query-based lookups
+          for (const [value, docs] of resultsByValue) {
+            referenceCache[value] = docs.length === 1 ? docs[0] : docs
+          }
+        } catch (error) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn(
+              `Populate: Failed to fetch query-based references for ${fieldName}:`,
+              error,
+            )
+          }
         }
       }
     }
@@ -246,14 +323,28 @@ export async function populateDocuments<T extends Record<string, unknown>>(
 
           const referencedDoc = referenceCache[referenceId]
           if (referencedDoc) {
-            // Extract only specified fields if configured
-            const processedDoc = extractFields(
-              referencedDoc,
-              fieldConfig.fields,
-              fieldConfig.populate,
-            )
-            // Use setNestedValue to support nested 'as' paths
-            setNestedValue(populatedDoc, fieldConfig.as, processedDoc)
+            // Handle both single doc and array results from query-based lookups
+            if (Array.isArray(referencedDoc)) {
+              // Query-based lookup returned multiple matches - extract fields from each
+              const processedDocs = referencedDoc.map(doc =>
+                extractFields(
+                  doc as unknown as Record<string, unknown>,
+                  fieldConfig.fields,
+                  fieldConfig.populate,
+                ),
+              )
+              // Use setNestedValue to support nested 'as' paths
+              setNestedValue(populatedDoc, fieldConfig.as, processedDocs)
+            } else {
+              // Single document (ID-based or single query result)
+              const processedDoc = extractFields(
+                referencedDoc as unknown as Record<string, unknown>,
+                fieldConfig.fields,
+                fieldConfig.populate,
+              )
+              // Use setNestedValue to support nested 'as' paths
+              setNestedValue(populatedDoc, fieldConfig.as, processedDoc)
+            }
           } else if (process.env.NODE_ENV === 'development') {
             console.warn(
               `Populate: Reference not found for ${fieldName}: ${referenceId}`,
@@ -277,9 +368,15 @@ export async function populateDocuments<T extends Record<string, unknown>>(
             const populatedField = getNestedValue(nestedDoc, fieldConfig.as)
 
             if (populatedField) {
-              // Recursively populate the nested document
+              // Handle both array and single document cases
+              const isArray = Array.isArray(populatedField)
+              const docsToPopulate = isArray
+                ? (populatedField as Record<string, unknown>[])
+                : [populatedField as Record<string, unknown>]
+
+              // Recursively populate the nested document(s)
               const nestedPopulated = await populateDocuments(
-                [populatedField as Record<string, unknown>],
+                docsToPopulate,
                 fieldConfig.populate,
                 context,
                 {
@@ -294,7 +391,12 @@ export async function populateDocuments<T extends Record<string, unknown>>(
 
               if (nestedPopulated.length > 0) {
                 // Use setNestedValue to update the nested populated field
-                setNestedValue(nestedDoc, fieldConfig.as, nestedPopulated[0])
+                // Restore the original structure (array or single document)
+                setNestedValue(
+                  nestedDoc,
+                  fieldConfig.as,
+                  isArray ? nestedPopulated : nestedPopulated[0],
+                )
               }
             }
           }
@@ -331,10 +433,11 @@ export async function populateDocuments<T extends Record<string, unknown>>(
       const fieldNames = Object.keys(populateConfig)
       const depthInfo =
         currentDepth > 0 ? ` (depth ${currentDepth}/${maxDepth})` : ''
-      const refsInfo =
-        referenceIds.size > 0
-          ? ` fetched ${referenceIds.size} refs`
-          : ' no refs'
+
+      // Calculate total references fetched (ID-based + query-based)
+      const totalRefs = Object.keys(referenceCache).length
+      const refsInfo = totalRefs > 0 ? ` fetched ${totalRefs} refs` : ' no refs'
+
       const optionsInfo = []
 
       // Include relevant options in debug output

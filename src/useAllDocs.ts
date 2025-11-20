@@ -2,8 +2,7 @@ import { useEffect, useMemo } from 'react'
 
 import { useContext } from './context'
 import useStateMachine, { ResultType } from './state-machine'
-import { useDeepMemo, CommonOptions } from './utils'
-import { populateDocuments } from './usePopulate'
+import { useDeepMemo, CommonOptions, applyPopulateToAllDocs } from './utils'
 import { QueryKeyOptions, useQueryKey } from './query-key'
 
 /**
@@ -127,57 +126,18 @@ export default function useAllDocs<Content extends Record<string, unknown>>(
         const result = await pouch.allDocs<Content>(opt)
 
         if (isMounted) {
-          // Apply populate if configured and include_docs is true
-          if (populate && include_docs && result.rows) {
-            try {
-              const docsToPopulate = result.rows
-                .map(row => row.doc)
-                .filter(Boolean) as Content[]
-
-              if (docsToPopulate.length > 0) {
-                const populatedDocs = await populateDocuments(
-                  docsToPopulate,
-                  populate,
-                  { pouchdb: pouch, subscriptionManager },
-                  { maxDepth: stableOptions?.maxDepth },
-                )
-
-                // Update rows with populated documents
-                const populatedRows = result.rows.map((row, index) => ({
-                  ...row,
-                  doc: row.doc
-                    ? (populatedDocs[index] as PouchDB.Core.ExistingDocument<
-                        Content & PouchDB.Core.AllDocsMeta
-                      >) || row.doc
-                    : row.doc,
-                }))
-
-                dispatch({
-                  type: 'loading_finished',
-                  payload: {
-                    ...result,
-                    rows: populatedRows,
-                  },
-                })
-              } else {
-                dispatch({
-                  type: 'loading_finished',
-                  payload: result,
-                })
-              }
-            } catch (populateError) {
-              // Fallback to original result if populate fails
-              dispatch({
-                type: 'loading_finished',
-                payload: result,
-              })
-            }
-          } else {
-            dispatch({
-              type: 'loading_finished',
-              payload: result,
-            })
-          }
+          // Apply populate if configured - let errors propagate
+          const populatedResult = await applyPopulateToAllDocs(
+            result,
+            populate,
+            include_docs,
+            { pouchdb: pouch, subscriptionManager },
+            { maxDepth: stableOptions?.maxDepth },
+          )
+          dispatch({
+            type: 'loading_finished',
+            payload: populatedResult,
+          })
         }
       } catch (err) {
         if (isMounted) {

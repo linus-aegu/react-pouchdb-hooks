@@ -55,13 +55,14 @@ describe('stableStringify', () => {
     expect(stableStringify(complex)).toBe(stableStringify(reordered))
   })
 
-  test('should handle circular references gracefully', () => {
+  test('should throw on circular references (fail-fast)', () => {
     const circular: Record<string, unknown> = { a: 1 }
     circular.self = circular
 
-    // Should not throw, should return error fallback
-    const result = stableStringify(circular)
-    expect(result).toContain('error:')
+    // Should throw immediately instead of returning fallback
+    expect(() => stableStringify(circular)).toThrow(
+      'Circular reference detected in query options',
+    )
   })
 })
 
