@@ -1,7 +1,9 @@
 import React, {
   createContext,
   useContext as useReactContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   ReactNode,
 } from 'react'
@@ -138,6 +140,38 @@ function useAddSubscriptionManager(
     SubscriptionOptions | undefined
   >(subscriptionOptions)
 
+  // Ref to track current context object for cleanup
+  const contextObjectRef = useRef<ContextObject | null>(null)
+
+  // Cleanup all subscription managers on unmount
+  useEffect(() => {
+    return () => {
+      if (contextObjectRef.current) {
+        for (const key of Object.keys(contextObjectRef.current)) {
+          contextObjectRef.current[key].subscriptionManager.unsubscribeAll()
+        }
+      }
+    }
+  }, [])
+
+  // Cancel changes feeds BEFORE page unloads to prevent garbage collection errors
+  // This prevents "Could not fetch properties. Object may no longer exist" errors in Safari
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (contextObjectRef.current) {
+        for (const key of Object.keys(contextObjectRef.current)) {
+          contextObjectRef.current[key].subscriptionManager.unsubscribeAll()
+        }
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [])
+
   // Check if options changed using deep equality
   const didChangeOptions = !isEqual(
     subscriptionOptions,
@@ -182,6 +216,9 @@ function useAddSubscriptionManager(
       lastContextObject[key].subscriptionManager.unsubscribeAll()
     }
   }
+
+  // Update ref for cleanup on unmount/beforeunload
+  contextObjectRef.current = contextObjects
 
   return contextObjects
 }
