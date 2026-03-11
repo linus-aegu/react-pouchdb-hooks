@@ -1,4 +1,8 @@
-import type { PopulateConfig, PopulateOptions } from './populate-types'
+import type {
+  PopulateConfig,
+  PopulateFieldConfig,
+  PopulateOptions,
+} from './populate-types'
 
 /**
  * Subscription manager interface for type safety
@@ -187,7 +191,10 @@ export async function populateDocuments<T extends Record<string, unknown>>(
     const idBasedRefs = new Map<string, Set<string>>()
     const queryBasedRefs = new Map<
       string,
-      { config: (typeof populateConfig)[string]; values: Set<string> }
+      {
+        config: PopulateFieldConfig
+        values: Set<string>
+      }
     >()
 
     // Initialize maps for each populate field
@@ -249,55 +256,72 @@ export async function populateDocuments<T extends Record<string, unknown>>(
       }
     }
 
-    // Fetch query-based references using find (new behavior)
+    // Fetch query-based references using find
     for (const [fieldName, { config, values }] of queryBasedRefs.entries()) {
-      if (values.size > 0 && config.query) {
-        try {
-          const uniqueValues = Array.from(values)
-          const querySpec = config.query(uniqueValues)
+      if (values.size === 0) continue
 
-          // Execute find query
-          const findResult = await pouchdb.find(querySpec)
+      // Skip if query function is not defined (should not happen, but type guard)
+      if (!config.query) continue
 
-          // Map results back to reference values
-          // Since we don't know which field was queried, we need to inspect the selector
-          const selectorKeys = Object.keys(querySpec.selector)
-          const queryField = selectorKeys[0] // Get the field used in the query
+      try {
+        const uniqueValues = Array.from(values)
 
-          // Group results by the query field value
-          const resultsByValue = new Map<
-            string,
-            PouchDB.Core.ExistingDocument<Record<string, unknown>>[]
-          >()
+        // Use custom query function
+        const querySpec = config.query(uniqueValues)
 
-          for (const doc of findResult.docs) {
-            const fieldValue = getNestedValue(
-              doc as unknown as Record<string, unknown>,
-              queryField,
+        // Try to detect which field to use for mapping results
+        // Look for field with query operator (like $in, $eq, etc.)
+        const selectorKeys = Object.keys(querySpec.selector)
+        const lookupField =
+          selectorKeys.find(key => {
+            const condition = querySpec.selector[key]
+            return (
+              condition &&
+              typeof condition === 'object' &&
+              Object.keys(condition).some(k => k.startsWith('$'))
             )
-            if (fieldValue && typeof fieldValue === 'string') {
-              if (!resultsByValue.has(fieldValue)) {
-                resultsByValue.set(fieldValue, [])
-              }
-              resultsByValue
-                .get(fieldValue)
-                ?.push(
-                  doc as PouchDB.Core.ExistingDocument<Record<string, unknown>>,
-                )
+          }) ||
+          // Fallback: any field that's not 'type' (common filter field)
+          selectorKeys.find(key => key !== 'type') ||
+          // Last resort: first field
+          selectorKeys[0]
+
+        // Execute find query
+        const findResult = await pouchdb.find(querySpec)
+
+        // Group results by the lookup field value
+        const resultsByValue = new Map<
+          string,
+          PouchDB.Core.ExistingDocument<Record<string, unknown>>[]
+        >()
+
+        for (const doc of findResult.docs) {
+          const fieldValue = getNestedValue(
+            doc as unknown as Record<string, unknown>,
+            lookupField,
+          )
+          if (fieldValue && typeof fieldValue === 'string') {
+            if (!resultsByValue.has(fieldValue)) {
+              resultsByValue.set(fieldValue, [])
             }
+            resultsByValue
+              .get(fieldValue)
+              ?.push(
+                doc as PouchDB.Core.ExistingDocument<Record<string, unknown>>,
+              )
           }
+        }
 
-          // Store in cache - use array for query-based lookups
-          for (const [value, docs] of resultsByValue) {
-            referenceCache[value] = docs.length === 1 ? docs[0] : docs
-          }
-        } catch (error) {
-          if (process.env.NODE_ENV === 'development') {
-            console.warn(
-              `Populate: Failed to fetch query-based references for ${fieldName}:`,
-              error,
-            )
-          }
+        // Store in cache - use array for query-based lookups
+        for (const [value, docs] of resultsByValue) {
+          referenceCache[value] = docs.length === 1 ? docs[0] : docs
+        }
+      } catch (error) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(
+            `Populate: Failed to fetch query-based references for ${fieldName}:`,
+            error,
+          )
         }
       }
     }

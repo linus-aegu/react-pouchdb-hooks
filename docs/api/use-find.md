@@ -84,6 +84,12 @@ interface PopulateFieldConfig {
   db?: string // Database name if different from current (optional)
   populate?: PopulateConfig // Nested populate configuration (recursive)
   fields?: string[] // Array of fields to include from populated document
+  query?: (values: string[]) => {
+    // Custom query function for non-_id lookups (foreign key support)
+    selector: PouchDB.Find.Selector
+    limit?: number
+    use_index?: string | [string, string]
+  }
 }
 
 interface PopulateConfig {
@@ -120,7 +126,7 @@ const { docs } = useFind({
 
 ### Performance Considerations
 
-- Populate operations are optimized with bulk fetching using `allDocs()`
+- Populate operations are optimized with bulk fetching using `allDocs()` (ID-based) or `find()` (query-based)
 - Field selection reduces memory usage and improves performance
 - Results are cached during a single populate operation
 - Circular reference detection prevents infinite loops

@@ -29,9 +29,16 @@ The `populate` option accepts a configuration object where:
 
 ```typescript
 interface PopulateFieldConfig {
-  as: string // Where to place the populated document. Supports dot notation (e.g., 'author' or 'material_info.cultivar')
+  as: string // Where to place the populated document. Supports dot notation
   db?: string // Database name if different from current (optional)
   populate?: PopulateConfig // Nested populate configuration (recursive)
+  fields?: string[] // Array of fields to include from populated document
+  query?: (values: string[]) => {
+    // Custom query function for non-_id lookups (foreign key support)
+    selector: PouchDB.Find.Selector
+    limit?: number
+    use_index?: string | [string, string]
+  }
 }
 
 interface PopulateConfig {
@@ -44,6 +51,17 @@ interface PopulateOptions {
   db?: string
 }
 ```
+
+### Two Populate Modes
+
+1. **ID-based (default)**: Lookup by document `_id` using `allDocs()`
+   - Fast and simple
+   - Use when your documents reference other documents by their `_id`
+
+2. **Query-based (with `query` option)**: Custom query using `find()`
+   - Lookup by any indexed field (foreign keys)
+   - Add additional filters
+   - Control query performance with indexes
 
 Dot notation allows you to:
 
@@ -66,11 +84,12 @@ Dot notation allows you to:
 
 ## Performance Considerations
 
-- Populate operations are optimized with bulk fetching using `allDocs()`
+- Populate operations are optimized with bulk fetching using `allDocs()` (ID-based) or `find()` (query-based)
 - Results are cached during a single populate operation to avoid duplicate fetches
 - Circular reference detection prevents infinite loops
 - Maximum recursion depth prevents performance issues
 - References to the same document are only fetched once per populate operation
+- Use `fields` option to reduce data transfer and memory usage by fetching only needed fields
 
 ## Example Usage
 
@@ -347,6 +366,105 @@ export function ConditionalPopulate({ document, includeAuthor = true }) {
       <p>Category: {populatedDoc.category?.name}</p>
       <p>{populatedDoc.content}</p>
     </article>
+  )
+}
+```
+
+### Foreign Key Lookup with Custom Query
+
+Use the `query` option to populate by a field other than `_id` (foreign key):
+
+```jsx
+import React from 'react'
+import { usePopulate } from '@aegu/react-pouchdb-hooks'
+
+export function MaterialWithCultivar({ materials }) {
+  const {
+    docs: populatedMaterials,
+    loading,
+    error,
+  } = usePopulate(materials, {
+    populate: {
+      'material_info.cultivar_id': {
+        as: 'material_info.cultivar',
+        // Lookup by indexed field instead of _id
+        query: values => ({
+          selector: {
+            cultivar_base_code: { $in: values },
+            type: 'cultivar', // Additional filter
+          },
+          use_index: ['ddoc_cultivar', 'idx_cultivar_base_code'],
+        }),
+      },
+    },
+  })
+
+  if (error) {
+    return <div>Error: {error.message}</div>
+  }
+
+  if (loading) {
+    return <div>Populating materials...</div>
+  }
+
+  return (
+    <div>
+      {populatedMaterials.map(material => (
+        <div key={material._id}>
+          <h3>{material.title}</h3>
+          <p>Cultivar: {material.material_info?.cultivar?.name}</p>
+          <p>Color: {material.material_info?.cultivar?.color}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+```
+
+### Field Selection
+
+Use `fields` to include only specific fields from populated documents:
+
+```jsx
+import React from 'react'
+import { usePopulate } from '@aegu/react-pouchdb-hooks'
+
+export function CompactPostList({ posts }) {
+  const {
+    docs: populatedPosts,
+    loading,
+    error,
+  } = usePopulate(posts, {
+    populate: {
+      authorId: {
+        as: 'author',
+        fields: ['name', 'avatar'], // Only fetch name and avatar
+      },
+      categoryId: {
+        as: 'category',
+        fields: ['name', 'slug'], // Only fetch name and slug
+      },
+    },
+  })
+
+  if (error) {
+    return <div>Error: {error.message}</div>
+  }
+
+  if (loading) {
+    return <div>Loading...</div>
+  }
+
+  return (
+    <div>
+      {populatedPosts.map(post => (
+        <article key={post._id}>
+          <h2>{post.title}</h2>
+          <p>By: {post.author?.name}</p>
+          <p>Category: {post.category?.name}</p>
+        </article>
+      ))}
+    </div>
   )
 }
 ```

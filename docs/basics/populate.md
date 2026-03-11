@@ -90,12 +90,21 @@ The populate configuration is an object where:
   - `as`: Where to place the populated document. Use dot notation for nested placement (e.g., `'author'` or `'material_info.cultivar'`)
   - `db`: (Optional) Database name if the referenced document is in a different database
   - `populate`: (Optional) Nested populate configuration for the referenced document
+  - `fields`: (Optional) Array of field names to include from the populated document. Supports dot notation for nested fields.
+  - `query`: (Optional) Custom query function for non-\_id lookups (foreign key support)
 
 ```typescript
 interface PopulateFieldConfig {
   as: string // Where to place the populated document (supports dot notation)
   db?: string // Database name if different from current
   populate?: PopulateConfig // Nested populate configuration
+  fields?: string[] // Array of fields to include (supports dot notation)
+  query?: (values: string[]) => {
+    // Custom query function for non-_id lookups (foreign key support)
+    selector: PouchDB.Find.Selector
+    limit?: number
+    use_index?: string | [string, string]
+  }
 }
 ```
 
@@ -248,14 +257,127 @@ export function OrderDetails({ orderId }) {
 }
 ```
 
+## Foreign Key Lookups with Custom Queries
+
+By default, populate uses document `_id` for lookups. But sometimes you need to populate by a different field (foreign key). Use the `query` option for this:
+
+```jsx
+import React from 'react'
+import { useFind } from '@aegu/react-pouchdb-hooks'
+
+export function MaterialList() {
+  const {
+    docs: materials,
+    loading,
+    error,
+  } = useFind({
+    selector: { type: 'material' },
+    populate: {
+      'material_info.cultivar_id': {
+        as: 'material_info.cultivar',
+        // Use indexed field instead of _id for lookup
+        query: values => ({
+          selector: {
+            cultivar_base_code: { $in: values },
+            type: 'cultivar', // Optional filter
+          },
+          use_index: ['ddoc_cultivar', 'idx_cultivar_base_code'],
+        }),
+      },
+    },
+  })
+
+  if (loading) return <div>Loading...</div>
+  if (error) return <div>Error: {error.message}</div>
+
+  return (
+    <div>
+      {materials.map(material => (
+        <div key={material._id}>
+          <h3>{material.title}</h3>
+          <p>Cultivar: {material.material_info?.cultivar?.name}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+```
+
+The `query` function receives an array of all unique values to lookup and returns a PouchDB find query. This allows you to:
+
+- Use indexed fields for efficient lookups
+- Add additional filters (like `type` field)
+- Control query performance with `use_index`
+
+## Selecting Specific Fields
+
+Use the `fields` option to include only specific fields from populated documents:
+
+```jsx
+import React from 'react'
+import { useFind } from '@aegu/react-pouchdb-hooks'
+
+export function CompactUserList() {
+  const {
+    docs: posts,
+    loading,
+    error,
+  } = useFind({
+    selector: { type: 'post' },
+    populate: {
+      authorId: {
+        as: 'author',
+        fields: ['name', 'avatar'], // Only fetch these fields
+      },
+      categoryId: {
+        as: 'category',
+        fields: ['name'], // Only fetch name
+      },
+    },
+  })
+
+  if (loading) return <div>Loading...</div>
+  if (error) return <div>Error: {error.message}</div>
+
+  return (
+    <div>
+      {posts.map(post => (
+        <article key={post._id}>
+          <h2>{post.title}</h2>
+          <p>
+            By: {post.author?.name}
+            {post.author?.avatar && <img src={post.author.avatar} alt="" />}
+          </p>
+          <p>Category: {post.category?.name}</p>
+        </article>
+      ))}
+    </div>
+  )
+}
+```
+
+The `fields` option supports dot notation for nested fields:
+
+```jsx
+populate: {
+  authorId: {
+    as: 'author',
+    fields: ['name', 'contact.email', 'address.city']
+  }
+}
+```
+
+**Note**: `_id` and `_rev` are always included for document integrity, even if not specified in `fields`.
+
 ## Performance Considerations
 
 The populate feature is optimized for performance:
 
-- **Bulk Fetching**: Uses `allDocs()` to fetch multiple documents in a single request
+- **Bulk Fetching**: Uses `allDocs()` for ID-based lookups or `find()` for query-based lookups, both in a single request
 - **Caching**: Documents are cached during a single populate operation to avoid duplicate fetches
 - **Circular Reference Detection**: Prevents infinite loops when documents reference each other
 - **Depth Limiting**: `maxDepth` option prevents excessive recursion
+- **Field Selection**: Use `fields` option to reduce data transfer and memory usage
 
 ## Best Practices
 

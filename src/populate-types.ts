@@ -1,5 +1,29 @@
 /**
  * Configuration for populating a single field
+ *
+ * Supports two modes:
+ * 1. ID-based (default): Lookup by _id using allDocs()
+ * 2. Custom query: Lookup by indexed field using find() with custom query
+ *
+ * @example
+ * // Simple ID-based populate
+ * {
+ *   as: 'author',
+ *   fields: ['name', 'email']
+ * }
+ *
+ * @example
+ * // Foreign key lookup with custom query
+ * {
+ *   as: 'cultivar',
+ *   query: (values) => ({
+ *     selector: {
+ *       cultivar_base_code: { $in: values },
+ *       type: 'cultivar'
+ *     },
+ *     use_index: ['ddoc_cultivar', 'idx_cultivar_base_code']
+ *   })
+ * }
  */
 export interface PopulateFieldConfig {
   /** Field name where the populated document will be stored */
@@ -21,13 +45,6 @@ export interface PopulateFieldConfig {
    *
    * @param values - Array of reference values from source documents
    * @returns Query configuration for db.find()
-   *
-   * @example
-   * // Populate by indexed field instead of _id
-   * query: (values) => ({
-   *   selector: { cultivar_base_code: { $in: values } },
-   *   use_index: ['ddoc_cultivar', 'idx_cultivar_base_code']
-   * })
    */
   query?: (values: string[]) => {
     selector: PouchDB.Find.Selector
